@@ -223,6 +223,7 @@ local function _quadpointsFromPboxes(pboxes)
     return quadpoints, n
 end
 
+-- minhpt added begin
 local function _quadpointsToPboxes(quadpoints, n)
     -- reverse of previous function
     local pboxes = {}
@@ -236,6 +237,69 @@ local function _quadpointsToPboxes(quadpoints, n)
     end
     return pboxes
 end
+
+-- from \koreader\base\ffi\blitbuffer.lua
+local HIGHLIGHT_COLORS = {
+    ["red"]    = "#FF3300",
+    ["orange"] = "#FF8800",
+    ["yellow"] = "#FFFF33",
+    ["green"]  = "#00AA66",
+    ["olive"]  = "#88FF77",
+    ["cyan"]   = "#00FFEE",
+    ["blue"]   = "#0066FF",
+    ["purple"] = "#EE00FF",
+}
+
+-- Hex color to RGB
+local function hex_to_rgb(hex)
+    local r = tonumber(hex:sub(2, 3), 16)
+    local g = tonumber(hex:sub(4, 5), 16)
+    local b = tonumber(hex:sub(6, 7), 16)
+    return r, g, b
+end
+
+-- Euclidean distance between two RGB colors
+local function color_distance(r1, g1, b1, r2, g2, b2)
+    return math.sqrt((r1 - r2)^2 + (g1 - g2)^2 + (b1 - b2)^2)
+end
+
+-- Convert a RGB color to a closes color in HIGHLIGHT_COLORS
+local function rgb_to_color_name(r, g, b)
+    local closest_name = nil
+    local closest_distance = math.huge
+
+    for name, hex in pairs(HIGHLIGHT_COLORS) do
+        local r2, g2, b2 = hex_to_rgb(hex)
+        local distance = color_distance(r, g, b, r2, g2, b2)
+
+        if distance < closest_distance then
+            closest_distance = distance
+            closest_name = name
+        end
+    end
+
+    return closest_name
+end
+
+
+function PdfDocument:readHighlights(p1)
+    
+    local can_write = self:_checkIfWritable()
+    if can_write ~= true then return can_write end
+    
+    local page = self._document:openPage(p1)
+    local all_annots = page:getAllMarkupAnnotation() or {}
+    -- if all_annots ~= nil then
+    -- end
+    page:close()
+
+    for i, annot in ipairs(all_annots) do
+        annot.color = rgb_to_color_name(annot.color[1], annot.color[2], annot.color[3])
+    end
+
+    return all_annots
+end
+-- minhpt added extend
 
 function PdfDocument:saveHighlight(pageno, item)
     local can_write = self:_checkIfWritable()
@@ -256,6 +320,7 @@ function PdfDocument:saveHighlight(pageno, item)
     -- NOTE: For highlights, display style may differ compared to ReaderView:drawHighlightRect...
     --       (e.g., we do a MUL blend, MuPDF currently appears to do an OVER blend).
     page:addMarkupAnnotation(quadpoints, n, annot_type, annot_color) -- may update/adjust quadpoints
+
     -- Update pboxes with the possibly adjusted coordinates (this will have it updated
     -- in self.view.highlight.saved[page])
     item.pboxes = _quadpointsToPboxes(quadpoints, n)
@@ -292,6 +357,22 @@ function PdfDocument:updateHighlightContents(pageno, item, contents)
     end
     page:close()
 end
+
+function PdfDocument:updateAnnotationAuthor(pageno, item, contents)
+    local can_write = self:_checkIfWritable()
+    if can_write ~= true then return can_write end
+
+    self.is_edited = true
+    local quadpoints, n = _quadpointsFromPboxes(item.pboxes)
+    local page = self._document:openPage(pageno)
+    local annot = page:getMarkupAnnotation(quadpoints, n)
+    if annot ~= nil then
+        page:setAnnotationAuthor(annot,contents)
+        self:resetTileCacheValidity()
+    end
+    page:close()
+end
+
 
 function PdfDocument:writeDocument()
     logger.info("writing document to", self.file)
