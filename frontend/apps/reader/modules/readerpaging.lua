@@ -99,7 +99,15 @@ function ReaderPaging:setupTouchZones()
             screen_zone = forward_zone,
             handler = function()
                 if G_reader_settings:nilOrFalse("page_turns_disable_tap") then
-                    return self:onGotoViewRel(1)
+                    local highlight_navigation_enable_tap = G_reader_settings:readSetting("highlight_navigation_enable_tap")
+                    if highlight_navigation_enable_tap then
+                        local pn_or_xp = self.current_page
+                        local event = self.ui.paging and "GotoNextHighlightPageFromPage"
+                        self.ui:handleEvent(Event:new(event, pn_or_xp))
+                        return true
+                    else
+                        return self:onGotoViewRel(1) 
+                    end
                 end
             end,
         },
@@ -109,7 +117,15 @@ function ReaderPaging:setupTouchZones()
             screen_zone = backward_zone,
             handler = function()
                 if G_reader_settings:nilOrFalse("page_turns_disable_tap") then
-                    return self:onGotoViewRel(-1)
+                    local highlight_navigation_enable_tap = G_reader_settings:readSetting("highlight_navigation_enable_tap")
+                    if highlight_navigation_enable_tap then
+                        local pn_or_xp = self.current_page
+                        local event = self.ui.paging and "GotoPreviousHighlightPageFromPage"
+                        self.ui:handleEvent(Event:new(event, pn_or_xp))
+                        return true
+                    else
+                        return self:onGotoViewRel(-1)
+                    end
                 end
             end,
         },

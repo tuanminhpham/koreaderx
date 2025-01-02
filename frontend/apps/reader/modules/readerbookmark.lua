@@ -22,6 +22,7 @@ local _ = require("gettext")
 local N_ = _.ngettext
 local Screen = require("device").screen
 local T = require("ffi/util").template
+local Notification = require("ui/widget/notification")
 
 local ReaderBookmark = InputContainer:extend{
     -- mark the type of a bookmark with a symbol + non-expandable space
@@ -514,6 +515,51 @@ function ReaderBookmark:onGotoNextBookmarkFromPage(add_current_location_to_stack
     end
     local pn_or_xp = self:getCurrentPageNumber()
     self:gotoBookmark(self:getNextBookmarkedPage(pn_or_xp))
+    return true
+end
+
+function ReaderBookmark:onGotoPreviousHighlightPageFromPage(add_current_location_to_stack)
+    if add_current_location_to_stack ~= false then -- nil or true
+        self.ui.link:addCurrentLocationToStack()
+    end
+    local pn_or_xp = self:getCurrentPageNumber()
+
+    for i = #self.ui.annotation.annotations, 1, -1 do
+        local item = self.ui.annotation.annotations[i]
+        if (item.drawer) and (item.page < pn_or_xp) then
+            local event = self.ui.paging and "GotoPage"
+            self.ui:handleEvent(Event:new(event, item.page))
+            return true
+        end
+    end
+end
+
+function ReaderBookmark:onGotoNextHighlightPageFromPage(add_current_location_to_stack)
+    if add_current_location_to_stack ~= false then -- nil or true
+        self.ui.link:addCurrentLocationToStack()
+    end
+    local pn_or_xp = self:getCurrentPageNumber()
+
+    for i = 1, #self.ui.annotation.annotations do
+        local item = self.ui.annotation.annotations[i]
+        if (item.drawer) and (item.page > pn_or_xp) then
+            local event = self.ui.paging and "GotoPage"
+            self.ui:handleEvent(Event:new(event, item.page))
+            return true
+        end
+    end
+end
+
+function ReaderBookmark:onToggleHighlightNavigation()
+    if G_reader_settings:nilOrFalse("highlight_navigation_enable_tap") then
+        G_reader_settings:makeTrue("highlight_navigation_enable_tap")
+        UIManager:show(Notification:new{text = _("Highlight navigation: On."), })
+        UIManager:broadcastEvent(Event:new("HighlightNavigationChanged"))
+    else
+        G_reader_settings:makeFalse("highlight_navigation_enable_tap")
+        UIManager:show(Notification:new{text = _("Highlight navigation: Off."), })
+        UIManager:broadcastEvent(Event:new("HighlightNavigationChanged"))
+    end
     return true
 end
 

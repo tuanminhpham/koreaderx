@@ -49,6 +49,7 @@ local MODE = {
     custom_text = 17,
     book_author = 18,
     page_turning_inverted = 19, -- includes both page-turn-button and swipe-and-tap inversion
+    highlight_navigation = 20,
 }
 
 local symbol_prefix = {
@@ -76,6 +77,8 @@ local symbol_prefix = {
         wifi_status = C_("FooterLetterPrefix", "W:"),
         -- @translators This is the footer letter prefix for page turning status.
         page_turning_inverted = C_("FooterLetterPrefix", "Pg:"),
+        -- @translators This is the footer letter prefix for highlight navigationg status.
+        highlight_navigation = C_("FooterLetterPrefix", "HN:"),
     },
     icons = {
         time = "⌚",
@@ -93,6 +96,7 @@ local symbol_prefix = {
         wifi_status_off = "",
         page_turning_inverted = "⇄",
         page_turning_regular = "⇉",
+        highlight_navigation = C_("FooterLetterPrefix", "HN:"),
     },
     compact_items = {
         time = nil,
@@ -111,6 +115,7 @@ local symbol_prefix = {
         wifi_status_off = "",
         page_turning_inverted = "⇄",
         page_turning_regular = "⇉",
+        highlight_navigation = C_("FooterLetterPrefix", "HN"),
     }
 }
 if BD.mirroredUILayout() then
@@ -412,6 +417,15 @@ local footerTextGeneratorMap = {
         local merge = footer.custom_text:gsub(" ", ""):len() == 0
         return footer.custom_text:rep(footer.custom_text_repetitions), merge
     end,
+    highlight_navigation = function(footer)
+        local symbol_type = footer.settings.item_prefix
+        local prefix = symbol_prefix[symbol_type].highlight_navigation
+        if G_reader_settings:isTrue("highlight_navigation_enable_tap") then
+            return prefix .. " " .. _("On")
+        else
+            return prefix .. " " .. _("Off")
+        end
+    end,
 }
 
 local ReaderFooter = WidgetContainer:extend{
@@ -481,6 +495,7 @@ ReaderFooter.default_settings = {
     progress_pct_format = "0",
     pages_left_includes_current_page = false,
     initial_marker = false,
+    highlight_navigation = true,
 }
 
 function ReaderFooter:init()
@@ -980,6 +995,7 @@ function ReaderFooter:textOptionTitles(option)
         custom_text = T(_("Custom text (long-press to edit): \'%1\'%2"), self.custom_text,
             self.custom_text_repetitions > 1 and
             string.format(" × %d", self.custom_text_repetitions) or ""),
+        highlight_navigation = _("Highlight navigation"),
     }
     return option_titles[option]
 end
@@ -1372,6 +1388,8 @@ function ReaderFooter:addToMainMenu(menu_items)
     table.insert(footer_items, getMinibarOption("book_title"))
     table.insert(footer_items, getMinibarOption("book_chapter"))
     table.insert(footer_items, getMinibarOption("custom_text"))
+
+    table.insert(footer_items, getMinibarOption("highlight_navigation"))
 
     -- configure footer_items
     table.insert(sub_items, {
@@ -2468,6 +2486,10 @@ function ReaderFooter:onSetPageHorizMargins(h_margins)
 end
 
 function ReaderFooter:onTimeFormatChanged()
+    self:refreshFooter(true, true)
+end
+
+function ReaderFooter:onHighlightNavigationChanged()
     self:refreshFooter(true, true)
 end
 

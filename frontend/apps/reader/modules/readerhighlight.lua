@@ -13,6 +13,7 @@ local SpinWidget = require("ui/widget/spinwidget")
 local TextViewer = require("ui/widget/textviewer")
 local Translator = require("ui/translator")
 local UIManager = require("ui/uimanager")
+local dbg = require("dbg")
 local ffiUtil = require("ffi/util")
 local logger = require("logger")
 local util = require("util")
@@ -48,6 +49,191 @@ local function inside_box(pos, box)
             return true
         end
     end
+end
+
+function ReaderHighlight:quadpointsFromPboxes(pboxes)
+    -- will also need mupdf_h.lua to be evaluated once
+    -- but this is guaranteed at this point
+    local n = #pboxes
+    local quadpoints = ffi.new("fz_quad[?]", n)
+    for i=1, n do
+        -- The order must be left bottom, right bottom, left top, right top.
+        -- https://bugs.ghostscript.com/show_bug.cgi?id=695130
+        quadpoints[i-1].ll.x = pboxes[i].x
+        quadpoints[i-1].ll.y = pboxes[i].y + pboxes[i].h - 1
+        quadpoints[i-1].lr.x = pboxes[i].x + pboxes[i].w - 1
+        quadpoints[i-1].lr.y = pboxes[i].y + pboxes[i].h - 1
+        quadpoints[i-1].ul.x = pboxes[i].x
+        quadpoints[i-1].ul.y = pboxes[i].y
+        quadpoints[i-1].ur.x = pboxes[i].x + pboxes[i].w - 1
+        quadpoints[i-1].ur.y = pboxes[i].y
+    end
+    return quadpoints, n
+end
+
+function ReaderHighlight:quadpointsToPboxes(quadpoints, n)
+    local pboxes = {}
+    for i=1, n do
+        table.insert(pboxes, {
+            x = quadpoints[i].ul.x,
+            y = quadpoints[i].ul.y,
+            w = quadpoints[i].lr.x - quadpoints[i].ul.x + 1,
+            h = quadpoints[i].lr.y - quadpoints[i].ul.y + 1,
+        })
+    end
+    return pboxes
+end
+
+-- the ul with min y
+-- x ngang, y docj
+function ReaderHighlight:quadpointsToPos0xy(quadpoints, n)
+    local pos0xy = {
+        x = quadpoints[1].ul.x,
+        y = quadpoints[1].ul.y,
+    }
+    for i=2, n do
+        if pos0xy.y > quadpoints[i].ul.y then
+            pos0xy.x = quadpoints[i].ul.x
+            pos0xy.y = quadpoints[i].ul.y
+        end
+    end
+    local h = quadpoints[1].ll.y - quadpoints[1].ul.y
+    pos0xy.x = pos0xy.x + h/4
+    pos0xy.y = pos0xy.y + h/4
+    return pos0xy
+end
+
+-- the lr with max y
+-- x ngang, y docj
+function ReaderHighlight:quadpointsToPos1xy(quadpoints, n)
+    local pos1xy = {
+        x = quadpoints[1].lr.x,
+        y = quadpoints[1].lr.y,
+    }
+    for i=2, n do
+        if pos1xy.y < quadpoints[i].lr.y then
+            pos1xy.x = quadpoints[i].lr.x
+            pos1xy.y = quadpoints[i].lr.y
+        end
+    end
+    local h = quadpoints[1].ll.y - quadpoints[1].ul.y
+    pos1xy.x = pos1xy.x - h/4
+    pos1xy.y = pos1xy.y - h/4
+    return pos1xy
+end
+
+function ReaderHighlight:resetMetadatafile()
+    --local highlight_write_into_pdf = G_reader_settings:readSetting("highlight_write_into_pdf")
+    --G_reader_settings:makeFalse("highlight_write_into_pdf")
+    local highlight_write_into_pdf = self.highlight_write_into_pdf
+    self.highlight_write_into_pdf = false
+    -- UIManager:show(Notification:new{text = _("resetMetadatafile."), })
+    --[[
+    highlights, idx_offset = self:getPageSavedHighlights(1)
+    UIManager:show(Notification:new{
+        text = T(_("The number of highlights in page 1 is '%1'."), #highlights),
+    })
+    ]]
+    --local file_path = "/storage/emulated/0/Books/test/annotations.txt"  
+    --local file = io.open(file_path, "w") 
+    
+    --UIManager:show(Notification:new{text = T(_("Number of highlights in metadata: '%1'."), #self.ui.annotation.annotations),})
+    
+    local count = 0
+    for i = #self.ui.annotation.annotations, 1, -1 do
+        if self.ui.annotation.annotations[i].drawer then
+            count = count + 1
+            self:deleteHighlight(i)
+            --UIManager:show(Notification:new{text = T(_("Deleted highlight: '%1'."), i),})
+            --self.ui.bookmark:removeItemByIndex(i)
+        end
+    end
+    --UIManager:show(Notification:new{text = T(_("Number of highlights DELETED from metadata: '%1'."), count),})
+    
+    -- self.ui.annotation.annotations = {}
+    if highlight_write_into_pdf then
+        self.highlight_write_into_pdf = true
+        -- G_reader_settings:makeTrue("highlight_write_into_pdf")
+    else
+        self.highlight_write_into_pdf = false
+        -- G_reader_settings:makeFalse("highlight_write_into_pdf")
+    end
+    
+    --G_reader_settings:delSetting("annotations")
+    --self.ui.doc_settings:delSetting("annotations")
+    --self.ui.doc_settings:readSetting("annotations", self.ui.annotation.annotations)
+    --UIManager:show(Notification:new{text = T(_("Number of highlights in metadata after deleted: '%1'."), #self.ui.annotation.annotations),})
+
+    count = 0
+    for p1 = 1, self.document:getPageCount() do
+        local all_annots = self.document:readHighlights(p1)
+
+        for i, annot in ipairs(all_annots) do
+            local quadpoints = annot.quadpoints
+            local pos0xy = self:quadpointsToPos0xy(quadpoints, #quadpoints)
+            local pos1xy = self:quadpointsToPos1xy(quadpoints, #quadpoints)
+            local item = {
+                page = p1,
+                pageno = p1,
+                pboxes = self:quadpointsToPboxes(quadpoints, #quadpoints),
+                pos0 = {
+                    page = p1,
+                    rotation = 0,
+                    x = pos0xy.x,
+                    y = pos0xy.y,
+                },
+                pos1 = {
+                    page = p1,
+                    rotation = 0,
+                    x = pos1xy.x,
+                    y = pos1xy.y,
+                },
+                text = annot.text or "", -- util.cleanupSelectedText(self.selected_text.text)
+                drawer = self.view.highlight.saved_drawer,
+                color = annot.color,
+                chapter = self.ui.toc:getTocTitleByPage(p1),
+            }
+            count = count + 1
+            local index = self.ui.annotation:addItem(item)
+            self.view.footer:maybeUpdateFooter()
+            self.ui:handleEvent(Event:new("AnnotationsModified", { item, nb_highlights_added = 1 }))
+            --[[
+            file:write("Annotation " .. (i) .. ":\n")
+            for j, point in ipairs(quadpoints) do    
+                file:write(string.format(
+                    "  Point %d:\nUL(%f, %f)\nUR(%f, %f)\nLL(%f, %f)\nLR(%f, %f)\n",
+                    j,
+                    point.ul.x, point.ul.y,
+                    point.ur.x, point.ur.y,
+                    point.ll.x, point.ll.y,
+                    point.lr.x, point.lr.y
+                ))
+            end
+            file:write(string.format(
+                    "  pos0xy(%f, %f)\npos1xy(%f, %f)\n\n",
+                    item.pos0.x, item.pos0.y,
+                    item.pos1.x, item.pos1.y
+                ))
+                ]]
+        end
+    end
+
+    --file:write("\nAbsolute path to this file: " .. file_path .. "\n")
+    --file:close()
+
+    --self.ui.doc_settings:saveSetting("annotations", self.annotations)
+    -- self:handleEvent(Event:new("SaveSettings"))
+    --G_reader_settings:flush()
+    UIManager:setDirty(self.dialog, "ui")
+    --self.ui.doc_settings:flush(self.ui.doc_settings.data, true)
+    UIManager:show(Notification:new{text = T(_("Imported '%1' highlights from pdf to metadata."), count),})
+    
+    --UIManager:show(Notification:new{
+    --        text = T(_("The number of highlights is '%1'."), tostring(count)),
+    --    })  
+
+
+    --UIManager:show(Notification:new{ text = _("Hello"),})
 end
 
 function ReaderHighlight:init()
@@ -124,11 +310,11 @@ function ReaderHighlight:init()
                 end,
             }
         end,
-        ["06_dictionary"] = function(this, index)
+        ["06_dictionary"] = function(this)
             return {
                 text = _("Dictionary"),
                 callback = function()
-                    this:lookupDict(index)
+                    this:onHighlightDictLookup()
                     -- We don't call this:onClose(), same reason as above
                 end,
             }
@@ -674,6 +860,23 @@ If you wish your highlights to be saved in the document, just move it to a writa
                                     text = T(N_("1 highlight written into PDF file",
                                         "%1 highlights written into PDF file", count), count),
                                 })
+                                
+                                -- self:resetMetadatafile()
+                            end,
+                        })
+                    end,
+                },
+                {
+                    text = _("Import highlights from this pdf file"),
+                    enabled_func = function()
+                        return true
+                    end,
+                    callback = function()
+                        UIManager:show(ConfirmBox:new{
+                            text = _("It will delete all highlights that have not been saved to the PDF file. Are you sure you want to import highlights from the PDF file?"),
+                            icon = "texture-box",
+                            ok_callback = function()
+                                self:resetMetadatafile()
                             end,
                         })
                     end,
@@ -904,6 +1107,9 @@ Except when in two columns mode, where this is limited to showing only the previ
     }
 end
 
+
+
+
 function ReaderHighlight:genPanelZoomMenu()
     return {
         {
@@ -1029,18 +1235,6 @@ function ReaderHighlight:onTap(_, ges)
     end
 end
 
-function ReaderHighlight:getHighlightVisibleBoxes(index)
-    local boxes = {}
-    for _, box in ipairs(self.view.highlight.visible_boxes) do
-        if box.index == index then
-            table.insert(boxes, box.rect)
-        end
-    end
-    if next(boxes) ~= nil then
-        return boxes
-    end
-end
-
 function ReaderHighlight:updateHighlight(index, side, direction, move_by_char)
     local highlight = self.ui.annotation.annotations[index]
     local highlight_before = util.tableDeepCopy(highlight)
@@ -1161,9 +1355,6 @@ function ReaderHighlight:showHighlightNoteOrDialog(index)
             text = bookmark_note,
             width = math.floor(math.min(self.screen_w, self.screen_h) * 0.8),
             height = math.floor(math.max(self.screen_w, self.screen_h) * 0.4),
-            anchor = function()
-                return self:_getDialogAnchor(textviewer, index)
-            end,
             buttons_table = {
                 {
                     {
@@ -1328,7 +1519,7 @@ function ReaderHighlight:onShowHighlightDialog(index)
     self.edit_highlight_dialog = ButtonDialog:new{ -- in self for unit tests
         buttons = buttons,
         anchor = function()
-            return self:_getDialogAnchor(self.edit_highlight_dialog, index)
+            return self:_getDialogAnchor(self.edit_highlight_dialog, item)
         end,
     }
     UIManager:show(self.edit_highlight_dialog)
@@ -1369,7 +1560,7 @@ function ReaderHighlight:onShowHighlightMenu(index)
     self.highlight_dialog = ButtonDialog:new{
         buttons = highlight_buttons,
         anchor = function()
-            return self:_getDialogAnchor(self.highlight_dialog, index)
+            return self:_getDialogAnchor(self.highlight_dialog, not self.gest_pos and self.ui.annotation.annotations[index])
         end,
         tap_close_callback = function() self:handleEvent(Event:new("Tap")) end,
     }
@@ -1377,42 +1568,55 @@ function ReaderHighlight:onShowHighlightMenu(index)
     --       or the buggy Sage kernel may alpha-blend it into the page (with a bogus alpha value, to boot)...
     UIManager:show(self.highlight_dialog, "[ui]")
 end
+dbg:guard(ReaderHighlight, "onShowHighlightMenu",
+    function(self)
+        assert(self.selected_text ~= nil,
+            "onShowHighlightMenu must not be called with nil self.selected_text!")
+    end)
 
-function ReaderHighlight:_getDialogAnchor(dialog, index)
+function ReaderHighlight:_getDialogAnchor(dialog, item)
     local position = G_reader_settings:readSetting("highlight_dialog_position", "center")
     if position == "center" then return end
-    local padding = Size.padding.small -- vertical padding, do not stick to the highlight box or to the screen edge
     local dialog_box = dialog:getContentSize()
     local anchor_x = math.floor((self.screen_w - dialog_box.w) / 2) -- center by width
     local anchor_y, prefers_pop_down
     if position == "top" then
-        anchor_y = padding
+        anchor_y = Size.padding.small -- do not stick to the edge
         prefers_pop_down = true
     elseif position == "bottom" then
-        anchor_y = self.screen_h - padding
+        anchor_y = self.screen_h - Size.padding.small
     else -- "gesture"
-        local boxes = index and self:getHighlightVisibleBoxes(index) or (self.selected_text.sboxes or self.selected_text.pboxes)
-        if boxes == nil then return end -- fallback to "center"
-        local box0, box1 = boxes[1], boxes[#boxes]
-        if box0.y > box1.y then
-            box0, box1 = box1, box0
+        local pos0, pos1
+        if item then -- highlight
+            if self.ui.rolling then
+                local y, x = self.ui.document:getScreenPositionFromXPointer(item.pos0)
+                pos0 = x ~= nil and y ~= nil and { x = x, y = y } or nil
+                y, x = self.ui.document:getScreenPositionFromXPointer(item.pos1)
+                pos1 = x ~= nil and y ~= nil and { x = x, y = y } or nil
+            else
+                pos0, pos1 = item.pos0, item.pos1
+            end
+        else -- gesture
+            pos0, pos1 = unpack(self.gest_pos)
+            self.gest_pos = nil
         end
-        if self.ui.paging then
-            local page = index and self.ui.annotation.annotations[index].pos0.page or self.selected_text.pos0.page
-            box0 = self.view:pageToScreenTransform(page, box0)
-            box1 = self.view:pageToScreenTransform(page, box1)
-            if box0 == nil or box1 == nil then return end
+        if pos0 == nil or pos1 == nil then return end -- fallback to "center"
+        if pos0.y > pos1.y then -- try to show the dialog below the highlight
+            pos1 = pos0
         end
-        local y0 = box0.y
-        local y1 = box1.y + box1.h
-        local dialog_box_h = dialog_box.h + 2 * padding
-        if y1 + dialog_box_h <= self.screen_h then -- below highlight, preferable
-            anchor_y = y1 + padding
+        local text_box = self.ui.document:getWordFromPosition(pos1, true)
+        if text_box then
+            text_box = text_box.sbox
+            if text_box and self.ui.paging then
+                text_box = self.view:pageToScreenTransform(self.ui.paging.current_page, text_box)
+            end
+        end
+        if text_box == nil then return end -- fallback to "center"
+        anchor_y = text_box.y + text_box.h + Size.padding.small -- do not stick to the box
+        if anchor_y + dialog_box.h <= self.screen_h - Size.padding.small then -- enough room below box with gest_pos
             prefers_pop_down = true
-        elseif dialog_box_h <= y0 then -- above highlight
-            anchor_y = y0 - padding
-        else -- not enough room below and above, fallback to "center"
-            return
+        else -- above box with gest_pos
+            anchor_y = text_box.y - Size.padding.small
         end
     end
     return { x = anchor_x, y = anchor_y, h = 0, w = 0 }, prefers_pop_down
@@ -1742,7 +1946,7 @@ function ReaderHighlight:onHoldPan(_, ges)
     end
     self:_resetHoldTimer() -- selection updated
     logger.dbg("selected text:", self.selected_text)
-    if self.ui.paging and self.selected_text then
+    if self.selected_text then
         self.view.highlight.temp[self.hold_pos.page] = self.selected_text.sboxes
     end
     UIManager:setDirty(self.dialog, "ui")
@@ -1757,33 +1961,36 @@ You can download language data files for Tesseract version 5.3.4 from https://te
 
 Copy the language data files (e.g., eng.traineddata for English and spa.traineddata for Spanish) into koreader/data/tessdata]])
 
-function ReaderHighlight:lookupDictWord()
+function ReaderHighlight:lookup(selected_text, selected_link)
     -- convert sboxes to word boxes
     local word_boxes = {}
-    for i, sbox in ipairs(self.selected_text.sboxes) do
+    for i, sbox in ipairs(selected_text.sboxes) do
         word_boxes[i] = self.view:pageToScreenTransform(self.hold_pos.page, sbox)
     end
+
     -- if we extracted text directly
-    if #self.selected_text.text > 0 then
-        self.ui.dictionary:onLookupWord(self.selected_text.text, false, word_boxes, self, self.selected_link)
+    if #selected_text.text > 0 and self.hold_pos then
+        self.ui:handleEvent(Event:new("LookupWord", selected_text.text, false, word_boxes, self, selected_link))
     -- or we will do OCR
-    elseif self.selected_text.sboxes then
-        local text = self.ui.document:getOCRText(self.hold_pos.page, self.selected_text.sboxes)
+    elseif selected_text.sboxes and self.hold_pos then
+        local text = self.ui.document:getOCRText(self.hold_pos.page, selected_text.sboxes)
         if not text then
             -- getOCRText is not implemented in some document backends, but
             -- getOCRWord is implemented everywhere. As such, fall back to
             -- getOCRWord.
             text = ""
-            for _, sbox in ipairs(self.selected_text.sboxes) do
+            for _, sbox in ipairs(selected_text.sboxes) do
                 local word = self.ui.document:getOCRWord(self.hold_pos.page, { sbox = sbox })
                 logger.dbg("OCRed word:", word)
                 --- @fixme This might produce incorrect results on RTL text.
-                text = text .. (word or "")
+                if word and word ~= "" then
+                    text = text .. word
+                end
             end
         end
         logger.dbg("OCRed text:", text)
         if text and text ~= "" then
-            self.ui.dictionary:onLookupWord(text, false, word_boxes, self, self.selected_link)
+            self.ui:handleEvent(Event:new("LookupWord", text, false, word_boxes, self, selected_link))
         else
             UIManager:show(InfoMessage:new{
                 text = info_message_ocr_text,
@@ -1791,6 +1998,11 @@ function ReaderHighlight:lookupDictWord()
         end
     end
 end
+dbg:guard(ReaderHighlight, "lookup",
+    function(self, selected_text, selected_link)
+        assert(selected_text ~= nil,
+            "lookup must not be called with nil selected_text!")
+    end)
 
 function ReaderHighlight:getSelectedWordContext(nb_words)
     if not self.selected_text then return end
@@ -1901,7 +2113,7 @@ function ReaderHighlight:onHoldRelease()
 
     if self.selected_text then
         if self.is_word_selection then
-            self:lookupDictWord()
+            self:lookup(self.selected_text, self.selected_link)
         else
             if long_final_hold or default_highlight_action == "ask" then
                 -- bypass default action and show popup if long final hold
@@ -1921,7 +2133,7 @@ function ReaderHighlight:onHoldRelease()
                 self:lookupWikipedia()
                 self:onClose()
             elseif default_highlight_action == "dictionary" then
-                self:lookupDict()
+                self:onHighlightDictLookup()
                 self:onClose()
             elseif default_highlight_action == "search" then
                 self:onHighlightSearch()
@@ -2047,7 +2259,21 @@ function ReaderHighlight:saveHighlight(extend_to_sentence)
         if self.ui.paging then
             item.pboxes = self.selected_text.pboxes
             item.ext = self.selected_text.ext
-            self:writePdfAnnotation("save", item)
+            -- minhpt deleted begin
+            -- self:writePdfAnnotation("save", item)
+            -- minhpt deleted end
+            -- minhpt added begin
+            if item.drawer then
+              self:writePdfAnnotation("delete", item)
+              self:writePdfAnnotation("save", item)
+              if item.note then
+                  self:writePdfAnnotation("content", item, item.note)
+              end
+              --UIManager:show(Notification:new{text = _("Hello"),})
+            else
+              self:writePdfAnnotation("save", item)
+            end
+            -- minhpt added end
         end
         local index = self.ui.annotation:addItem(item)
         self.view.footer:maybeUpdateFooter()
@@ -2061,9 +2287,12 @@ function ReaderHighlight:writePdfAnnotation(action, item, content)
         return
     end
     logger.dbg("write to pdf document", action, item)
+    --UIManager:show(Notification:new{text = _("writePdfAnnotation."), })
     local function doAction(action_, page_, item_, content_)
         if action_ == "save" then
             self.document:saveHighlight(page_, item_)
+            self.document:updateAnnotationAuthor(page_, item_, "highlight")
+            --UIManager:show(Notification:new{text = _("unit-teamX"), })
         elseif action_ == "delete" then
             self.document:deleteHighlight(page_, item_)
         elseif action_ == "content" then
@@ -2103,19 +2332,11 @@ function ReaderHighlight:onHighlightSearch()
     end
 end
 
-function ReaderHighlight:lookupDict(index)
+function ReaderHighlight:onHighlightDictLookup()
     logger.dbg("dictionary lookup highlight")
     self:highlightFromHoldPos()
     if self.selected_text then
-        local boxes = index and self:getHighlightVisibleBoxes(index) or (self.selected_text.sboxes or self.selected_text.pboxes)
-        local word_boxes
-        if boxes ~= nil then
-            word_boxes = {}
-            for i, box in ipairs(boxes) do
-                word_boxes[i] = self.view:pageToScreenTransform(self.selected_text.pos0.page, box)
-            end
-        end
-        self.ui.dictionary:onLookupWord(util.cleanupSelectedText(self.selected_text.text), false, word_boxes)
+        self.ui:handleEvent(Event:new("LookupWord", util.cleanupSelectedText(self.selected_text.text)))
     end
 end
 
@@ -2296,7 +2517,6 @@ function ReaderHighlight:extendSelection()
         -- pos0 and pos1 are in order within highlights
         new_pos0 = self.ui.document:compareXPointers(item1.pos0, item2_pos0) == 1 and item1.pos0 or item2_pos0
         new_pos1 = self.ui.document:compareXPointers(item1.pos1, item2_pos1) == 1 and item2_pos1 or item1.pos1
-        new_pboxes = self.document:getScreenBoxesFromPositions(new_pos0, new_pos1)
         -- true to draw
         new_text = self.ui.document:getTextFromXPointers(new_pos0, new_pos1, true)
     end
@@ -2600,5 +2820,7 @@ function ReaderHighlight:_createHighlightGesture(gesture)
         time = time.realtime(),
     }
 end
+
+
 
 return ReaderHighlight
