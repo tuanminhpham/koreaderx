@@ -50,6 +50,8 @@ Once the "Highlight Navigation" feature is configured:
 
 ## Installation
 
+[Download](https://github.com/tuanminhpham/koreaderx/releases)
+
 Download for Android: 
 
 koreaderx-2024.11-beta.apk 
