@@ -58,6 +58,7 @@ koreaderx-2024.11-beta.apk
 
 SHA256: e45c7f0c6744f68f4bf1617f9b01bdffe9a8caa2627ac06ecd28d97116bdac13
 
+When using this program, you should back up your data and take full responsibility for any errors that may occur.
 
 ## Development
 
