@@ -529,6 +529,10 @@ end
 
 function ReaderView:drawPageSavedHighlight(bb, x, y)
     local do_cache = not self.page_scroll and self.document.configurable.text_wrap == 0
+    if self.document.koreaderx_render_revision and next(self.document.koreaderx_render_revision) then
+        do_cache = false
+        self.highlight.page_boxes = {}
+    end
     local colorful
     local pages = self:getCurrentPageList()
     for _, page in ipairs(pages) do
@@ -549,9 +553,20 @@ function ReaderView:drawPageSavedHighlight(bb, x, y)
             end
             local items, idx_offset = self.ui.highlight:getPageSavedHighlights(page)
             for index, item in ipairs(items) do
-                local boxes = self.document:getPageBoxesFromPositions(page, item.pos0, item.pos1)
+                local boxes
+                if item.koreaderx_pdf_source and self.document.configurable.text_wrap == 0 then
+                    -- Imported annotations may sit on a scanned/blank page with
+                    -- no text boxes. Their raw quad bounds still need hit targets.
+                    boxes = item.pboxes
+                else
+                    boxes = self.document:getPageBoxesFromPositions(page, item.pos0, item.pos1)
+                end
                 if boxes then
                     local drawer = item.drawer
+                    if item.koreaderx_pdf_source then
+                        local state = self.document:importedAnnotationState(item, page)
+                        if state == "native" or state == "stale" then drawer = "native" end
+                    end
                     local color = item.color and Blitbuffer.colorFromName(item.color)
                     if not colorful and color and not Blitbuffer.isColor8(color) then
                         colorful = true
@@ -1198,7 +1213,12 @@ end
 
 ReaderView.onReflowUpdated = ReaderView.resetHighlightBoxesCache
 ReaderView.onDocumentRerendered = ReaderView.resetHighlightBoxesCache
-ReaderView.onAnnotationsModified = ReaderView.resetHighlightBoxesCache
+function ReaderView:onAnnotationsModified()
+    self:resetHighlightBoxesCache()
+    if self.document.setImportedAnnotations then
+        self.document:setImportedAnnotations(self.ui.annotation.annotations)
+    end
+end
 
 function ReaderView:onPageGapUpdate(page_gap)
     self.page_gap.height = Screen:scaleBySize(page_gap)

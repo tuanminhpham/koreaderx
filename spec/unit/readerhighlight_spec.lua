@@ -4,6 +4,9 @@ describe("Readerhighlight module", function()
 
     setup(function()
         require("commonrequire")
+        -- These coordinate fixtures were recorded with the upstream footer layout.
+        -- KOReaderX default dimensions are covered independently by footer tests.
+        G_reader_settings:saveSetting("footer", { container_height = 14, reclaim_height = false })
         disable_plugins()
         require("document/canvascontext"):init(require("device"))
         DataStorage = require("datastorage")

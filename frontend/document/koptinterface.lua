@@ -178,6 +178,7 @@ function KoptInterface:getContextHash(doc, pageno, bbox, hash_list)
     local canvas_size = CanvasContext:getSize()
     table.insert(hash_list, doc.file)
     table.insert(hash_list, doc.mod_time)
+    table.insert(hash_list, (doc.koreaderx_render_revision or {})[pageno] or "")
     table.insert(hash_list, doc.render_color and 'color' or 'bw')
     table.insert(hash_list, doc.render_mode)
     table.insert(hash_list, pageno)
@@ -1003,6 +1004,13 @@ local function getWordBoxIndices(boxes, pos)
         end
     end
     return m, n
+end
+
+-- Imported annotation endpoints are native page positions; expose the same
+-- nearest-word mapping used by selection without comparing PDF quad margins.
+function KoptInterface:getWordBoxIndices(boxes, pos)
+    if not pos or not boxes or not boxes[1] or not boxes[1][1] then return end
+    return getWordBoxIndices(boxes, pos)
 end
 
 local function compareWordBoxIndices(i1, j1, i2, j2)

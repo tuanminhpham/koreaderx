@@ -476,6 +476,7 @@ function ReaderBookmark:removeItem(item, item_idx)
 end
 
 function ReaderBookmark:removeItemByIndex(index)
+    if not self.ui.highlight:checkAnnotationEditingAllowed() then return false end
     local item = table.remove(self.ui.annotation.annotations, index)
     local item_type = self.getBookmarkType(item)
     if item_type == "highlight" then
@@ -487,8 +488,13 @@ function ReaderBookmark:removeItemByIndex(index)
 end
 
 function ReaderBookmark:deleteItemNote(item)
+    if not self.ui.highlight:checkAnnotationEditingAllowed() then return false end
     local index = self:getBookmarkItemIndex(item)
-    self.ui.annotation.annotations[index].note = nil
+    if self.ui.annotation.annotations[index].koreaderx_pdf_source then
+        if not self.ui.highlight:writePdfAnnotation("content", self.ui.annotation.annotations[index], "") then return false end
+    else
+        self.ui.annotation.annotations[index].note = nil
+    end
     self.ui:handleEvent(Event:new("AnnotationsModified", { item, nb_highlights_added = 1, nb_notes_added = -1 }))
 end
 
@@ -1428,6 +1434,7 @@ function ReaderBookmark:setBookmarkNote(item_or_index, is_new_note, new_note, ca
     else -- from Highlight
         index = item_or_index
     end
+    local resolve = self.ui.highlight:makeHighlightResolver(index)
     local annotation = self.ui.annotation.annotations[index]
     local type_before = item and item.type or self.getBookmarkType(annotation)
     local input_text = annotation.note
@@ -1456,7 +1463,8 @@ function ReaderBookmark:setBookmarkNote(item_or_index, is_new_note, new_note, ca
                         --       especially if we're closed separately from our VirtualKeyboard.
                         UIManager:close(input_dialog, "flashui")
                         if is_new_note then -- "Add note" called from highlight dialog and cancelled, remove saved highlight
-                            self:removeItemByIndex(index)
+                            local current = resolve()
+                            if current then self:removeItemByIndex(current) end
                         end
                     end,
                 },
@@ -1470,8 +1478,12 @@ function ReaderBookmark:setBookmarkNote(item_or_index, is_new_note, new_note, ca
                     text = _("Save"),
                     is_enter_default = true,
                     callback = function()
+                        index = resolve()
+                        if not index then UIManager:close(input_dialog); return end
+                        annotation = self.ui.annotation.annotations[index]
                         local value = input_dialog:getInputText()
-                        self.ui.highlight:writePdfAnnotation("content", annotation, value)
+                        if self.ui.highlight:writePdfAnnotation("content", annotation, value) == false then return end
+                        annotation = self.ui.annotation.annotations[index]
                         if value == "" then -- blank input deletes note
                             value = nil
                         end
@@ -1542,6 +1554,7 @@ function ReaderBookmark:editHighlightedText(item_or_index, caller_callback)
 end
 
 function ReaderBookmark:setHighlightedText(item_or_index, text, caller_callback)
+    if not self.ui.highlight:checkAnnotationEditingAllowed() then return false end
     local item, index
     if self.bookmark_menu then
         item = item_or_index -- in item_table
@@ -1706,23 +1719,23 @@ function ReaderBookmark:filterByHighlightColor()
 end
 
 function ReaderBookmark:importEmbeddedAnnotations()
-    local annotations = self.document:getEmbeddedAnnotations()
-    if annotations then
-        local count, skipped = self.ui.highlight:importEmbeddedAnnotations(annotations)
-        if count > 0 then
-            self.bookmark_menu[1].close_callback()
-            self:onShowBookmark()
-            local msg = T(N_("1 annotation imported.", "%1 annotations imported.", count), count)
-            if skipped > 0 then
-                msg = msg .. "\n" .. T(N_("1 duplicate skipped.", "%1 duplicates skipped.", skipped), skipped)
-            end
-            UIManager:show(InfoMessage:new{ text = msg })
-        else
-            UIManager:show(InfoMessage:new{ text = _("All embedded annotations are already imported.") })
-        end
-    else
-        UIManager:show(InfoMessage:new{ text = _("No embedded annotations found.") })
+    local ok, annotations, rejected = pcall(self.document.getEmbeddedAnnotations, self.document)
+    if not ok then
+        UIManager:show(InfoMessage:new{ text = _("PDF annotations could not be read. No annotations were changed.") .. "\n" .. tostring(annotations) })
+        return false
     end
+    local count, skipped, invalid, conflicts = self.ui.highlight:importEmbeddedAnnotations(annotations or {})
+    if not count then
+        UIManager:show(InfoMessage:new{ text = _("Import failed. Existing PDF and KOReader annotations were kept.") .. "\n" .. tostring(skipped) })
+        return false
+    end
+    if count > 0 and self.bookmark_menu then
+        self.bookmark_menu[1].close_callback()
+        self:onShowBookmark()
+    end
+    UIManager:show(InfoMessage:new{ text = T(_("Imported: %1. Already imported or deleted locally: %2. Invalid: %3. Conflicts requiring review: %4."),
+        count, skipped, invalid + #(rejected or {}), conflicts) })
+    return true
 end
 
 function ReaderBookmark:doesBookmarkMatchTable(item)

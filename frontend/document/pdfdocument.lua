@@ -21,6 +21,9 @@ local PdfDocument = Document:extend{
 }
 
 function PdfDocument:init()
+    local Transaction = require("document/pdfannotationtransaction")
+    Transaction.recover(self.file)
+    self.koreaderx_open_hash = self:supportsEmbeddedAnnotations() and Transaction.hash(self.file) or nil
     if not pdf then pdf = require("ffi/mupdf") end
     self.koptinterface = require("document/koptinterface")
     self.koptinterface:setDefaultConfigurable(self.configurable)
@@ -89,6 +92,7 @@ function PdfDocument:unlock(password)
     if not self._document:authenticatePassword(password) then
         return false
     end
+    self.koreaderx_password = password -- transient; never stored in metadata
     self.is_locked = false
     self:_readMetadata()
     return true
@@ -193,6 +197,7 @@ end
 
 -- returns nil if file is not a pdf, true if document is a writable pdf, false else
 function PdfDocument:_checkIfWritable()
+    if self.koreaderx_transaction_blocked then return false end
     local suffix = util.getFileNameSuffix(self.file)
     if string.lower(suffix) ~= "pdf" then return nil end
     if self.is_writable == nil then
@@ -293,22 +298,271 @@ function PdfDocument:updateHighlightContents(pageno, item, contents)
     page:close()
 end
 
+function PdfDocument:supportsEmbeddedAnnotations()
+    return util.getFileNameSuffix(self.file):lower() == "pdf"
+end
+
+function PdfDocument:checkPdfFileUnchanged()
+    assert(not self.koreaderx_open_hash or require("document/pdfannotationtransaction").hash(self.file) == self.koreaderx_open_hash,
+        "PDF changed outside KOReader. Close and reopen the document before importing or editing annotations.")
+end
+
 function PdfDocument:getEmbeddedAnnotations()
-    local annotations = {}
+    if not self:supportsEmbeddedAnnotations() then return nil, {} end
+    self:checkPdfFileUnchanged()
+    local annotations, rejected = {}, {}
     for pageno = 1, self.info.number_of_pages do
         local page = self._document:openPage(pageno)
-        local page_annots = page:getEmbeddedAnnotations()
-        if page_annots then
-            annotations[pageno] = page_annots
-        end
+        local ok, page_annots, invalid = pcall(page.getEmbeddedAnnotations, page)
         page:close()
+        assert(ok, page_annots)
+        if page_annots then annotations[pageno] = page_annots end
+        for _, reason in ipairs(invalid or {}) do
+            rejected[#rejected + 1] = { page = pageno, reason = reason }
+        end
     end
-    return next(annotations) and annotations
+    self.koreaderx_rejected_annotations = rejected
+    return next(annotations) and annotations, rejected
+end
+-- All imported-annotation rendering state is derived from sidecar data; it is
+-- never serialized as a pointer or by changing flags on PDF objects.
+function PdfDocument:setImportedAnnotations(annotations)
+    local Annotation = require("document/pdfannotations")
+    self._document.annotation_render_filter = {}
+    self.koreaderx_render_revision = {}
+    local page_data = {}
+    for _, item in ipairs(annotations) do
+        if item.koreaderx_pdf_source then
+            for _, part in ipairs(item.koreaderx_pdf_source.parts) do
+                local page = part.page
+                page_data[page] = page_data[page] or {}
+                table.insert(page_data[page], { source = part, override = item.koreaderx_pdf_visual_override,
+                    color = item.color, drawer = item.drawer, pboxes = item.pboxes, ext = item.ext })
+                if item.koreaderx_pdf_visual_override then
+                    local filters = self._document.annotation_render_filter
+                    filters[page] = filters[page] or {}
+                    table.insert(filters[page], part)
+                end
+            end
+        end
+    end
+    for page, data in pairs(page_data) do
+        self.koreaderx_render_revision[page] = Annotation.fingerprint(data)
+    end
+    self:resetTileCacheValidity()
+end
+
+-- Revalidate before suppressing an overlay. Stale/ambiguous sources retain
+-- their native appearance and block further edits instead of guessing.
+function PdfDocument:importedAnnotationState(item, pageno)
+    local source = item.koreaderx_pdf_source
+    if not source then return "local" end
+    local part
+    for _, candidate in ipairs(source.parts) do
+        if candidate.page == pageno then part = candidate; break end
+    end
+    if not part then return item.koreaderx_pdf_visual_override and "override" or "missing" end
+    local page = self._document:openPage(pageno)
+    local ok, pointer = pcall(page.resolveEmbeddedAnnotation, page, part)
+    page:close()
+    if not ok or not pointer then return "stale" end
+    return item.koreaderx_pdf_visual_override and "override" or "native"
+end
+
+function PdfDocument:validateImportedAnnotation(item)
+    self:checkPdfFileUnchanged()
+    for _, part in ipairs(item.koreaderx_pdf_source.parts) do
+        local page = self._document:openPage(part.page)
+        local ok, pointer, reason = pcall(page.resolveEmbeddedAnnotation, page, part)
+        page:close()
+        assert(ok and pointer, reason or "PDF annotation changed externally; import/reconcile before editing")
+    end
+end
+
+function PdfDocument:commitImportedAnnotation(settings, metadata, item, action)
+    local Transaction = require("document/pdfannotationtransaction")
+    local Annotation = require("document/pdfannotations")
+    assert(self:_checkIfWritable(), "PDF is read-only")
+    assert(not self.koreaderx_transaction_blocked, "PDF transaction recovery is required")
+    Transaction.recover(self.file)
+    self:validateImportedAnnotation(item)
+    local id = Transaction.id()
+    local before = Transaction.hash(self.file)
+    local snapshot = self.file .. ".koreaderx-" .. id .. ".snapshot"
+    local staged = self.file .. ".koreaderx-" .. id .. ".new"
+    self._document:saveSnapshot(snapshot)
+    local candidate = pdf.openDocument(snapshot)
+    local candidate_open = true
+    local function withPage(number, callback)
+        local page = candidate:openPage(number)
+        local ok, result = pcall(callback, page)
+        page:close()
+        assert(ok, result)
+        return result
+    end
+    local ok, result = pcall(function()
+        if candidate:needsPassword() then
+            assert(self.koreaderx_password and candidate:authenticatePassword(self.koreaderx_password),
+                "Cannot unlock candidate PDF")
+        end
+        local change_geometry = action == "geometry" or (action == "all"
+            and item.koreaderx_pdf_visual_override and item.koreaderx_pdf_visual_override.geometry)
+        local parts = item.koreaderx_pdf_source.parts
+        local template_part = parts[1]
+        local old_parts, new_parts = {}, {}
+        for _, part in ipairs(parts) do old_parts[part.page] = part end
+        if action == "delete" or action == "detach" then
+            for _, part in ipairs(parts) do
+                withPage(part.page, function(page) return page:deleteEmbeddedAnnotation(part) end)
+            end
+            if action == "detach" then
+                item.koreaderx_pdf_source, item.koreaderx_pdf_visual_override = nil, nil
+            end
+        else
+            local pages = {}
+            if change_geometry then
+                for number = item.pos0.page, item.pos1.page do pages[#pages + 1] = number end
+            else
+                for _, part in ipairs(parts) do pages[#pages + 1] = part.page end
+            end
+            for _, number in ipairs(pages) do
+                local part = old_parts[number]
+                local changes = {}
+                if change_geometry then
+                    changes.quads = Annotation.quads(item.ext and item.ext[number].pboxes or item.pboxes)
+                end
+                if action == "color" or action == "appearance" or (action == "all" and item.koreaderx_pdf_visual_override and item.koreaderx_pdf_visual_override.color) then
+                    local hex = assert(BlitBuffer.HIGHLIGHT_COLORS[item.color])
+                    local r, g, b = hex:match("#(..)(..)(..)")
+                    changes.color_n = 3
+                    changes.color_components = { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255 }
+                end
+                if action == "note" or action == "all" then changes.contents = item.note or "" end
+                if action == "style" or action == "appearance" or (action == "all" and item.koreaderx_pdf_visual_override and item.koreaderx_pdf_visual_override.style) then
+                    changes.type = Annotation.types[item.drawer]
+                end
+                local updated = withPage(number, function(page)
+                    if part then return page:updateEmbeddedAnnotation(part, changes) end
+                    local raw = util.tableDeepCopy(parts[1].raw)
+                    raw.quads = Annotation.quads(item.ext and item.ext[number].pboxes or item.pboxes)
+                    for field, value in pairs(changes) do raw[field] = type(value) == "table" and util.tableDeepCopy(value) or value end
+                    return page:createEmbeddedAnnotation(raw, template_part)
+                end)
+                updated.page = number
+                if number == template_part.page then template_part = updated end
+                new_parts[#new_parts + 1] = updated
+                old_parts[number] = nil
+            end
+            for number, part in pairs(old_parts) do
+                withPage(number, function(page) return page:deleteEmbeddedAnnotation(part) end)
+            end
+            item.koreaderx_pdf_source.parts = new_parts
+            -- A prior local-only change is not implicitly written by toggling
+            -- write-to-PDF. Keep the visual override until all fields match.
+            local visual = item.koreaderx_pdf_visual_override
+            if action == "all" then visual = nil; item.koreaderx_pdf_visual_override = nil end
+            if type(visual) == "table" then
+                visual[action] = nil
+                if action == "appearance" then visual.color, visual.style = nil, nil end
+                item.koreaderx_pdf_visual_override = next(visual) and visual or nil
+            end
+            if (action == "style" or action == "appearance" or action == "all") and not Annotation.types[item.drawer] then
+                item.koreaderx_pdf_visual_override = item.koreaderx_pdf_visual_override or {}
+                item.koreaderx_pdf_visual_override.style = true
+            end
+        end
+        candidate:writeDocument(staged)
+        candidate:close()
+        candidate_open = false
+        -- Save may renumber xrefs: reopen and validate every updated source,
+        -- keeping the returned identity rather than the old locator.
+        candidate = pdf.openDocument(staged)
+        candidate_open = true
+        if candidate:needsPassword() then assert(candidate:authenticatePassword(self.koreaderx_password)) end
+        if action ~= "delete" and action ~= "detach" then
+            for _, part in ipairs(item.koreaderx_pdf_source.parts) do
+                withPage(part.page, function(page)
+                    local pointer, entry = page:resolveEmbeddedAnnotation(part)
+                    assert(pointer, entry)
+                    part.num, part.gen, part.raw = entry.source.num, entry.source.gen, entry.raw
+                end)
+            end
+        end
+        candidate:close()
+        candidate_open = false
+        local destination, new_hash_directory
+        if G_reader_settings:readSetting("document_metadata_folder", "doc") == "hash" then
+            local old_hash_directory = settings:getSidecarDir(self.file, "hash")
+            assert(not settings.source_candidate or settings.source_candidate:sub(1, #old_hash_directory + 1) == old_hash_directory .. "/",
+                "Save and reopen the book after changing metadata storage to hash before writing PDF annotations")
+            new_hash_directory = settings:getSidecarDir(staged, "hash")
+            util.makePath(new_hash_directory)
+            destination = new_hash_directory .. "/" .. settings.sidecar_filename
+            for _, custom_file in ipairs({ settings:getCustomCoverFile(), settings:getCustomMetadataFile() }) do
+                if custom_file then
+                    local target = new_hash_directory .. "/" .. require("ffi/util").basename(custom_file)
+                    if target ~= custom_file then
+                        local target_hash = Transaction.hash(target)
+                        assert(target_hash == "absent" or target_hash == Transaction.hash(custom_file), "Conflicting custom metadata in new hash location")
+                        if target_hash == "absent" then Transaction.copy(custom_file, target) end
+                    end
+                end
+            end
+        end
+        if metadata.koreaderx_pdf_import then
+            metadata.koreaderx_pdf_import.seen_mtime = require("libs/libkoreader-lfs").attributes(staged, "modification")
+        end
+        local staged_metadata = Transaction.stageMetadata(settings, metadata, id, destination)
+        Transaction.commitPair(self.file, staged, staged_metadata, id, before)
+        settings.source_candidate = staged_metadata.path
+        settings.hash_sidecar_dir = new_hash_directory or settings.hash_sidecar_dir
+        DocSettings.invalidateDocumentHash(self.file)
+        settings:getCustomCoverFile(true)
+        settings:getCustomMetadataFile(true)
+        settings.data = metadata
+    end)
+    if candidate_open then pcall(candidate.close, candidate) end
+    -- Once the disk PDF changed, the old handle must never autosave over it.
+    -- A durable journal either completes the pair or blocks all further writes.
+    if Transaction.hash(self.file) ~= before then
+        local recovered, recover_error = pcall(Transaction.recover, self.file)
+        self.is_edited = false
+        self._document:close()
+        self._document = pdf.openDocument(self.file)
+        if self._document:needsPassword() then assert(self._document:authenticatePassword(self.koreaderx_password)) end
+        self:updateColorRendering()
+        self.mod_time = require("libs/libkoreader-lfs").attributes(self.file, "modification")
+        self.koreaderx_open_hash = Transaction.hash(self.file)
+        DocSettings.invalidateDocumentHash(self.file)
+        if G_reader_settings:readSetting("document_metadata_folder", "doc") == "hash" then
+            settings.hash_sidecar_dir = settings:getSidecarDir(self.file, "hash")
+            settings.source_candidate = settings.hash_sidecar_dir .. "/" .. settings.sidecar_filename
+        end
+        self:resetTileCacheValidity()
+        if not recovered then
+            self.koreaderx_transaction_blocked = true
+            settings.koreaderx_transaction_blocked = true
+            error(recover_error)
+        end
+        if not ok then
+            -- A failed rename may have been completed by recovery. Only treat
+            -- it as success if the durable metadata exactly matches candidate.
+            local disk = Transaction.readTable(Transaction.metadataPath(settings))
+            if Annotation.fingerprint(disk) == Annotation.fingerprint(metadata) then
+                settings.data = metadata
+                ok = true
+            end
+        end
+    end
+    assert(ok, result)
 end
 
 function PdfDocument:writeDocument()
+    assert(not self.koreaderx_transaction_blocked, "PDF transaction recovery is required before saving")
     logger.info("writing document to", self.file)
+    self:checkPdfFileUnchanged()
     self._document:writeDocument(self.file)
+    self.koreaderx_open_hash = require("document/pdfannotationtransaction").hash(self.file)
 end
 
 function PdfDocument:close()
@@ -317,7 +571,7 @@ function PdfDocument:close()
     local DocumentRegistry = require("document/documentregistry")
     if DocumentRegistry:getReferenceCount(self.file) == 1 then
         -- We're the final reference to this Document instance.
-        if self.is_edited then
+        if self.is_edited and not self.koreaderx_transaction_blocked then
             self:writeDocument()
         end
     end

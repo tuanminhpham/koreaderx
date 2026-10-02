@@ -396,6 +396,7 @@ function Document:getFullPageHash(pageno, zoom, rotation, gamma, saturation)
                     ..self.render_mode..(self.render_color and "|color" or "|bw")
                     ..(self.reflowable_font_size and "|"..self.reflowable_font_size or "")
                     .."|"..saturation
+                    .."|pdfann:"..((self.koreaderx_render_revision or {})[pageno] or "")
 end
 
 function Document:getPagePartHash(pageno, zoom, rotation, gamma, saturation, rect)
@@ -405,6 +406,7 @@ function Document:getPagePartHash(pageno, zoom, rotation, gamma, saturation, rec
                     ..self.render_mode..(self.render_color and "|color" or "|bw")
                     ..(self.reflowable_font_size and "|"..self.reflowable_font_size or "")
                     .."|"..saturation
+                    .."|pdfann:"..((self.koreaderx_render_revision or {})[pageno] or "")
 end
 
 function Document:renderPage(pageno, rect, zoom, rotation, gamma, saturation, hinting)

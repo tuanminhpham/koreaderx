@@ -47,6 +47,10 @@ function DocSettings.isHashLocationEnabled()
     return is_hash_location_enabled
 end
 
+function DocSettings.invalidateDocumentHash(doc_path)
+    doc_hash_cache[doc_path] = nil
+end
+
 function DocSettings.setIsHashLocationEnabled(value)
     is_hash_location_enabled = value
 end
@@ -315,6 +319,10 @@ end
 
 --- Serializes settings and writes them to `metadata.lua`.
 function DocSettings:flush(data, no_custom_metadata)
+    if self.koreaderx_transaction_blocked then
+        logger.warn("DocSettings: annotation recovery conflict; preserving on-disk metadata")
+        return nil
+    end
     data = data or self.data
     local sidecar_dirs
     local preferred_location = G_reader_settings:readSetting("document_metadata_folder", "doc")

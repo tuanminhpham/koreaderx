@@ -4,6 +4,7 @@ local Notification = require("ui/widget/notification")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
+local util = require("util")
 local _ = require("gettext")
 local T = require("ffi/util").template
 
@@ -259,6 +260,7 @@ function ReaderAnnotation:getExportAnnotationsFilepath()
 end
 
 function ReaderAnnotation:onExportAnnotations(on_closing)
+    if self.ui.doc_settings.koreaderx_transaction_blocked then return end
     local do_export = not on_closing or G_reader_settings:isTrue("annotations_export_on_closing")
     if do_export and self:hasAnnotations() then
         local file = self:getExportAnnotationsFilepath()
@@ -268,6 +270,7 @@ function ReaderAnnotation:onExportAnnotations(on_closing)
         anno:saveSetting("datetime", os.date("%Y-%m-%d %H:%M:%S"))
         anno:saveSetting("paging", self.ui.paging and true)
         anno:saveSetting("annotations", self.annotations)
+        anno:saveSetting("koreaderx_pdf_import", self.ui.doc_settings:readSetting("koreaderx_pdf_import"))
         anno:flush()
         os.remove(file .. ".old")
         if not on_closing then
@@ -277,13 +280,49 @@ function ReaderAnnotation:onExportAnnotations(on_closing)
 end
 
 function ReaderAnnotation:importAnnotations()
+    if self.ui.doc_settings.koreaderx_transaction_blocked then
+        logger.warn("ReaderAnnotation: recovery required; preserving incoming annotations file")
+        return
+    end
     local file = self:getExportAnnotationsFilepath()
     if lfs.attributes(file, "mode") ~= "file" then return end -- no import file
     local anno = LuaSettings:open(file)
     if anno:readSetting("device_id") == G_reader_settings:readSetting("device_id") then return end -- same device
     local new_annotations = anno:readSetting("annotations")
+    if type(new_annotations) ~= "table" then return end
     if (self.ui.paging and true) ~= anno:readSetting("paging") then return end -- incompatible annotations type
     local new_datetime = G_reader_settings:isTrue("annotations_export_keep_all_on_import") and "" or anno:readSetting("datetime")
+    if type(new_datetime) ~= "string" then return end
+    -- Keep the incoming file for recovery until the merged sidecar is saved.
+    if self.document.is_pdf then
+        local Transaction = require("document/pdfannotationtransaction")
+        local incoming = anno:readSetting("koreaderx_pdf_import")
+        if incoming ~= nil and (type(incoming) ~= "table" or (incoming.version and incoming.version ~= 1)) then
+            logger.warn("ReaderAnnotation: unsupported incoming PDF import schema; retaining file")
+            return
+        end
+        local backed_up, backup_err = pcall(Transaction.copy, file, file .. ".koreaderx-" .. Transaction.id() .. ".backup")
+        if not backed_up then logger.warn("ReaderAnnotation: cannot back up incoming annotations:", backup_err); return end
+        if type(incoming) == "table" and (incoming.version == nil or incoming.version == 1) then
+            local state = util.tableDeepCopy(self.ui.doc_settings:readSetting("koreaderx_pdf_import", { version = 1, tombstones = {} }))
+            if type(state) ~= "table" or (state.version and state.version ~= 1) then
+                logger.warn("ReaderAnnotation: unsupported local PDF import schema; retaining incoming file")
+                return
+            end
+            state.tombstones = state.tombstones or {}
+            if type(state.tombstones) ~= "table" or (incoming.tombstones ~= nil and type(incoming.tombstones) ~= "table") then
+                logger.warn("ReaderAnnotation: invalid tombstone data; retaining incoming file")
+                return
+            end
+            local fingerprint = require("document/pdfannotations").fingerprint
+            local known = {}
+            for _, part in ipairs(state.tombstones) do known[fingerprint(part)] = true end
+            for _, part in ipairs(incoming.tombstones or {}) do
+                if not known[fingerprint(part)] then table.insert(state.tombstones, part); known[fingerprint(part)] = true end
+            end
+            self.ui.doc_settings:saveSetting("koreaderx_pdf_import", state)
+        end
+    end
     os.remove(file)
     if #self.annotations == 0 then
         self.annotations = new_annotations
@@ -299,6 +338,11 @@ function ReaderAnnotation:importAnnotations()
         end
     else
         doesMatch = function(a, b)
+            if a.koreaderx_pdf_source or b.koreaderx_pdf_source then
+                if not (a.koreaderx_pdf_source and b.koreaderx_pdf_source) then return false end
+                local fingerprint = require("document/pdfannotations").fingerprint
+                return fingerprint(a.koreaderx_pdf_source) == fingerprint(b.koreaderx_pdf_source)
+            end
             if (not a.drawer) ~= (not b.drawer) or a.page ~= b.page
                 or (a.pos0 and (a.pos0.x ~= b.pos0.x or a.pos1.x ~= b.pos1.x
                              or a.pos0.y ~= b.pos0.y or a.pos1.y ~= b.pos1.y)) then
@@ -324,7 +368,7 @@ function ReaderAnnotation:importAnnotations()
             end
         end
         if not found then
-            if item_datetime < new_datetime then
+            if not item.koreaderx_pdf_source and item_datetime < new_datetime then
                 table.remove(self.annotations, i) -- export is newer, remove old
             end
         end
@@ -451,6 +495,11 @@ function ReaderAnnotation:getMatchFunc()
         end
     else
         doesMatch = function(a, b)
+            if a.koreaderx_pdf_source or b.koreaderx_pdf_source then
+                if not (a.koreaderx_pdf_source and b.koreaderx_pdf_source) then return false end
+                local fingerprint = require("document/pdfannotations").fingerprint
+                return fingerprint(a.koreaderx_pdf_source) == fingerprint(b.koreaderx_pdf_source)
+            end
             if (a.datetime ~= nil and b.datetime ~= nil and a.datetime ~= b.datetime)
                     or a.page ~= b.page
                     or (a.pos0 and (a.pos0.x ~= b.pos0.x or a.pos1.x ~= b.pos1.x
@@ -464,6 +513,9 @@ function ReaderAnnotation:getMatchFunc()
 end
 
 function ReaderAnnotation:getItemIndex(item, no_binary)
+    for index, candidate in ipairs(self.annotations) do
+        if candidate == item then return index end
+    end
     local doesMatch = self:getMatchFunc()
 
     if not no_binary then
