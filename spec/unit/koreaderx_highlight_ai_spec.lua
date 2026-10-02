@@ -1,0 +1,83 @@
+describe("KOReaderX AI highlight adapter", function()
+    local Highlight, PluginLoader, NetworkMgr, Trapper, UIManager, highlight
+    local stubs
+    setup(function()
+        require("commonrequire")
+        Highlight = require("apps/reader/modules/readerhighlight")
+        PluginLoader = require("pluginloader")
+        NetworkMgr = require("ui/network/manager")
+        Trapper = require("ui/trapper")
+        UIManager = require("ui/uimanager")
+    end)
+    before_each(function()
+        stubs = {}
+        highlight = Highlight:extend{ view = { highlight = {} }, selected_text = { text = "Hello there!" } }
+    end)
+    after_each(function()
+        for _, value in ipairs(stubs) do value:revert() end
+        UIManager:quit()
+    end)
+    local function mock(target, method, callback)
+        local value = stub(target, method, callback)
+        stubs[#stubs + 1] = value
+        return value
+    end
+    it("preserves the legacy toggle settings and keeps text selection enabled", function()
+        highlight:setAITranslateEnabled(true)
+        assert.equals("1", G_reader_settings:readSetting("ai_translate"))
+        assert.equals("ai_translate", G_reader_settings:readSetting("default_highlight_action"))
+        assert.is_false(highlight.view.highlight.disabled)
+        highlight:setAITranslateEnabled(false)
+        assert.equals("0", G_reader_settings:readSetting("ai_translate"))
+        assert.equals("highlight", G_reader_settings:readSetting("default_highlight_action"))
+    end)
+    it("cycles AI and unknown legacy actions safely without renumbering the old actions", function()
+        assert.equals("search", Highlight.long_press_action[9][2])
+        assert.equals("ai_translate", Highlight.long_press_action[10][2])
+        G_reader_settings:saveSetting("default_highlight_action", "ai_translate")
+        highlight:onCycleHighlightAction()
+        assert.equals("ask", G_reader_settings:readSetting("default_highlight_action"))
+        G_reader_settings:saveSetting("default_highlight_action", "unknown legacy action")
+        highlight:onCycleHighlightAction()
+        assert.equals("ask", G_reader_settings:readSetting("default_highlight_action"))
+    end)
+    it("does not request the network when the plugin is missing or uninitialized", function()
+        local network = mock(NetworkMgr, "runWhenOnline")
+        local getter = mock(PluginLoader, "getPluginInstance", function() return nil end)
+        highlight:translateWithAssistant()
+        getter:revert(); table.remove(stubs)
+        mock(PluginLoader, "getPluginInstance", function() return {isConfigured = function() return true end} end)
+        highlight:translateWithAssistant()
+        assert.stub(network).was_not_called()
+        assert.equals("Hello there!", highlight.selected_text.text)
+    end)
+    it("routes the captured text to translate exactly once using the plugin contract", function()
+        local called = 0
+        local plugin = {isConfigured = function() return true end,
+            assistant_dialog = { showCustomPrompt = function(_, text, key)
+                called = called + 1
+                assert.equals("Hello there", text)
+                assert.equals("translate", key)
+            end }}
+        mock(PluginLoader, "getPluginInstance", function() return plugin end)
+        mock(NetworkMgr, "runWhenOnline", function(_, callback) callback() end)
+        mock(Trapper, "wrap", function(_, callback) callback() end)
+        highlight:translateWithAssistant()
+        assert.equals(1, called)
+    end)
+    it("cancels delayed requests when the reader closes or the plugin reloads", function()
+        local callback, called = nil, 0
+        local plugin = {assistant_dialog = {showCustomPrompt = function() called = called + 1 end}}
+        mock(PluginLoader, "getPluginInstance", function() return plugin end)
+        mock(NetworkMgr, "runWhenOnline", function(_, cb) callback = cb end)
+        mock(Trapper, "wrap", function(_, cb) cb() end)
+        highlight:translateWithAssistant()
+        highlight:onCloseWidget()
+        callback()
+        assert.equals(0, called)
+        highlight:translateWithAssistant()
+        plugin = {}
+        callback()
+        assert.equals(0, called)
+    end)
+end)

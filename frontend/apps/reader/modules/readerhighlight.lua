@@ -371,6 +371,7 @@ local long_press_action = {
     {_("Wikipedia"), "wikipedia"},
     {_("Dictionary"), "dictionary"},
     {_("Fulltext search"), "search"},
+    {_("AI Translate"), "ai_translate"},
 }
 -- we need to expose this table to readerkeyselection
 -- as here it is hidden under a isTouchDevice cap
@@ -2085,6 +2086,8 @@ function ReaderHighlight:onHoldRelease()
             elseif default_highlight_action == "note" then
                 self:addNote()
                 self:onClose()
+            elseif default_highlight_action == "ai_translate" then
+                self:translateWithAssistant()
             elseif default_highlight_action == "translate" then
                 self:translate()
             elseif default_highlight_action == "wikipedia" then
@@ -2114,6 +2117,7 @@ end
 
 function ReaderHighlight:onSetHighlightAction(action_num, no_notification)
     local v = long_press_action[action_num]
+    if not v then return false end
     G_reader_settings:saveSetting("default_highlight_action", v[2])
     self.view.highlight.disabled = v[2] == "nothing"
     if not no_notification then -- fired with a gesture
@@ -2126,7 +2130,7 @@ end
 
 function ReaderHighlight:onCycleHighlightAction()
     local current_action = G_reader_settings:readSetting("default_highlight_action", "ask")
-    local next_action_num
+    local next_action_num = 1 -- unknown legacy/custom actions cycle safely to Ask
     for i, v in ipairs(long_press_action) do
         if v[2] == current_action then
             next_action_num = i + 1
@@ -2799,6 +2803,43 @@ function ReaderHighlight:onClose(keep_highlight)
     if not keep_highlight then
         self:clear()
     end
+end
+
+function ReaderHighlight:setAITranslateEnabled(enabled)
+    G_reader_settings:saveSetting("ai_translate", enabled and "1" or "0")
+    G_reader_settings:saveSetting("default_highlight_action", enabled and "ai_translate" or "highlight")
+    self.view.highlight.disabled = false
+end
+
+function ReaderHighlight:translateWithAssistant()
+    local PluginLoader = require("pluginloader")
+    local plugin = PluginLoader:getPluginInstance("assistant")
+    if not plugin then
+        UIManager:show(Notification:new{ text = _("AI Assistant plugin not available") })
+        return
+    end
+    if type(plugin.isConfigured) == "function" and not plugin:isConfigured() then return end
+    local dialog = plugin.assistant_dialog
+    if not dialog or type(dialog.showCustomPrompt) ~= "function" then
+        UIManager:show(Notification:new{ text = _("AI Assistant is not configured or its interface is unavailable.") })
+        return
+    end
+    if not (self.selected_text and type(self.selected_text.text) == "string") then return end
+    local text = util.stripPunctuation(util.cleanupSelectedText(self.selected_text.text))
+    if text == "" then return end
+    local token = self.koreaderx_reader_token or {}
+    self.koreaderx_reader_token = token
+    require("ui/network/manager"):runWhenOnline(function()
+        if self.koreaderx_reader_token ~= token or PluginLoader:getPluginInstance("assistant") ~= plugin then return end
+        require("ui/trapper"):wrap(function()
+            if self.koreaderx_reader_token ~= token or plugin.assistant_dialog ~= dialog then return end
+            dialog:showCustomPrompt(text, "translate")
+        end)
+    end)
+end
+
+function ReaderHighlight:onCloseWidget()
+    self.koreaderx_reader_token = nil
 end
 
 return ReaderHighlight
