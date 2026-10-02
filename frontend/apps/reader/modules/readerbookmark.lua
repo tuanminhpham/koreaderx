@@ -27,6 +27,8 @@ local N_ = _.ngettext
 local Screen = require("device").screen
 local T = require("ffi/util").template
 
+local Notification = require("ui/widget/notification")
+
 local ReaderBookmark = InputContainer:extend{
     -- mark the type of a bookmark with a symbol + non-expandable space
     display_prefix = {
@@ -574,6 +576,52 @@ function ReaderBookmark:onGotoNextBookmarkFromPage(add_current_location_to_stack
     end
     local pn_or_xp = self:getCurrentPageNumber()
     self:gotoBookmark(self:getNextBookmarkedPage(pn_or_xp))
+    return true
+end
+
+-- Compare displayed page numbers, but navigate using the original PDF page/XPointer.
+-- Page bookmarks and highlights on the current page are deliberately skipped.
+function ReaderBookmark:gotoHighlightPage(direction, add_current_location_to_stack)
+    local current_page = self:getBookmarkPageNumber({ page = self:getCurrentPageNumber() })
+    local destination, destination_page
+    for _, item in ipairs(self.ui.annotation.annotations) do
+        if item.drawer then
+            local page = self:getBookmarkPageNumber(item)
+            if page and direction * (page - current_page) > 0
+                    and (not destination_page or direction * (page - destination_page) < 0) then
+                destination, destination_page = item.page, page
+            end
+        end
+    end
+    if destination then
+        if add_current_location_to_stack ~= false then
+            self.ui.link:addCurrentLocationToStack()
+        end
+        self:gotoBookmark(destination)
+    end
+    return true
+end
+
+function ReaderBookmark:onGotoPreviousHighlightPageFromPage(add_current_location_to_stack)
+    return self:gotoHighlightPage(-1, add_current_location_to_stack)
+end
+
+function ReaderBookmark:onGotoNextHighlightPageFromPage(add_current_location_to_stack)
+    return self:gotoHighlightPage(1, add_current_location_to_stack)
+end
+
+function ReaderBookmark:onToggleHighlightNavigation()
+    local enabled = G_reader_settings:nilOrFalse("highlight_navigation_enable_tap")
+    G_reader_settings:saveSetting("highlight_navigation_enable_tap", enabled)
+    UIManager:show(Notification:new{
+        text = enabled and _("Highlight navigation: On.") or _("Highlight navigation: Off."),
+    })
+    UIManager:broadcastEvent(Event:new("HighlightNavigationChanged"))
+    return true
+end
+
+function ReaderBookmark:onRefreshSkimToWidget()
+    UIManager:setDirty(self.view.dialog, "ui", self.view.dogear:getRefreshRegion())
     return true
 end
 

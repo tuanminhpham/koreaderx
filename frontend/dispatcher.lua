@@ -75,6 +75,7 @@ local settingsList = {
     ----
     show_menu = {category="none", event="ShowMenu", title=_("Show menu"), general=true},
     menu_search = {category="none", event="MenuSearch", title=_("Menu search"), general=true},
+    toggle_highlight_navigation = {category="none", event="ToggleHighlightNavigation", title=_("Toggle highlight navigation"), reader=true},
     open_next_document_in_folder = {category="none", event="OpenNextOrPreviousFileInFolder", title=_("Open next file in last book folder"), general=true},
     open_previous_document_in_folder = {category="none", event="OpenNextOrPreviousFileInFolder", arg=true, title=_("Open previous file in last book folder"), general=true},
     notebook_file = {category="none", event="ShowNotebookFile", title=_("Notebook file"), general=true},
@@ -182,6 +183,8 @@ local settingsList = {
     ----
     prev_bookmark = {category="none", event="GotoPreviousBookmarkFromPage", title=_("Previous bookmark"), reader=true},
     next_bookmark = {category="none", event="GotoNextBookmarkFromPage", title=_("Next bookmark"), reader=true},
+    prev_highlight_page = {category="none", event="GotoPreviousHighlightPageFromPage", title=_("Previous highlight page"), reader=true},
+    next_highlight_page = {category="none", event="GotoNextHighlightPageFromPage", title=_("Next highlight page"), reader=true},
     first_bookmark = {category="none", event="GotoFirstBookmark", title=_("First bookmark"), reader=true},
     last_bookmark = {category="none", event="GotoLastBookmark", title=_("Last bookmark"), reader=true},
     latest_bookmark = {category="none", event="GoToLatestBookmark", title=_("Latest bookmark"), reader=true, separator=true},
@@ -206,6 +209,7 @@ local settingsList = {
     page_browser = {category="none", event="ShowPageBrowser", title=_("Page browser"), reader=true, condition=Device:isTouchDevice() or (Device:hasDPad() and Device:useDPadAsActionKeys())},
     bookmarks = {category="none", event="ShowBookmark", title=_("Bookmarks"), reader=true},
     bookmark_search = {category="none", event="SearchBookmark", title=_("Bookmark search"), reader=true},
+    refresh_skimtowidget = {category="none", event="RefreshSkimToWidget", title=_("Refresh skim toolbar"), reader=true},
     toggle_bookmark = {category="none", event="ToggleBookmark", title=_("Toggle bookmark"), reader=true, separator=true},
     ----
     book_status = {category="none", event="ShowBookStatus", title=_("Book status"), reader=true},
@@ -337,6 +341,7 @@ local dispatcher_menu_order = {
     ----
     "show_menu",
     "menu_search",
+    "toggle_highlight_navigation",
     "open_next_document_in_folder",
     "open_previous_document_in_folder",
     "notebook_file",
@@ -445,6 +450,8 @@ local dispatcher_menu_order = {
     ----
     "prev_bookmark",
     "next_bookmark",
+    "prev_highlight_page",
+    "next_highlight_page",
     "first_bookmark",
     "last_bookmark",
     "latest_bookmark",
@@ -469,6 +476,7 @@ local dispatcher_menu_order = {
     "page_browser",
     "bookmarks",
     "bookmark_search",
+    "refresh_skimtowidget",
     "toggle_bookmark",
     ----
     "book_status",
