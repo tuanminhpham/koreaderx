@@ -71,7 +71,7 @@ describe("Readerhighlight module", function()
         readerui.highlight:onTap(nil, { pos = pos2 })
         fastforward_ui_events()
         screenshot(Screen, screenshot_filename)
-        assert.truthy(UIManager:getTopmostVisibleWidget().name == "edit_highlight_dialog")
+        assert.truthy(UIManager:getTopmostVisibleWidget().name == "koreaderx_highlight_palette")
     end
 
     describe("highlight for EPUB documents", function()

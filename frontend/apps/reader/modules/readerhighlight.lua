@@ -27,15 +27,10 @@ local Screen = Device.screen
 local ReaderHighlight = InputContainer:extend{
     -- Matches what is available in BlitBuffer.HIGHLIGHT_COLORS
     highlight_colors = {
-        {_("Red"), "red"},
-        {_("Orange"), "orange"},
         {_("Yellow"), "yellow"},
         {_("Green"), "green"},
-        {_("Olive"), "olive"},
         {_("Cyan"), "cyan"},
-        {_("Blue"), "blue"},
         {_("Purple"), "purple"},
-        {_("Gray"), "gray"},
     },
 }
 
@@ -449,8 +444,7 @@ function ReaderHighlight:addToMainMenu(menu_items)
                 values = self.highlight_colors,
                 bg_colors = self:getHighlightColorList(),
                 callback = function(value)
-                    self.view.highlight.saved_color = value
-                    self:setSelectionColor()
+                    self:setDefaultHighlightColor(value)
                     touchmenu_instance:updateItems()
                 end,
             })
@@ -1476,7 +1470,7 @@ function ReaderHighlight:makeHighlightResolver(index)
     return resolve, refresh
 end
 
-function ReaderHighlight:showHighlightDialog(index)
+function ReaderHighlight:showFullHighlightDialog(index)
     local resolve, refresh = self:makeHighlightResolver(index)
     local item = self.ui.annotation.annotations[index]
     local change_boundaries_enabled = not item.text_edited
@@ -2834,6 +2828,13 @@ function ReaderHighlight:getSavedExtendedHighlightPage(highlight, page, index)
     return item
 end
 
+function ReaderHighlight:setDefaultHighlightColor(value)
+    self.view.highlight.saved_color = value
+    G_reader_settings:saveSetting("highlight_color", value)
+    self.ui.doc_settings:saveSetting("highlight_color", value)
+    self:setSelectionColor()
+end
+
 function ReaderHighlight:setAITranslateEnabled(enabled)
     G_reader_settings:saveSetting("ai_translate", enabled and "1" or "0")
     G_reader_settings:saveSetting("default_highlight_action", enabled and "ai_translate" or "highlight")
@@ -2871,6 +2872,40 @@ function ReaderHighlight:onCloseWidget()
     self.koreaderx_reader_token = nil
 end
 
+function ReaderHighlight:showHighlightDialog(index)
+    local resolve, refresh = self:makeHighlightResolver(index)
+    local item = self.ui.annotation.annotations[index]
+    if not item then return end
+    local dialog
+    local buttons = { {}, {} }
+    for _, color in ipairs(self.highlight_colors) do
+        buttons[1][#buttons[1] + 1] = {
+            text = color[1], background = self:getHighlightColor(color[2]),
+            callback = function()
+                local current = resolve()
+                if not current then UIManager:close(dialog); return end
+                if self:setHighlightColor(current, color[2]) then refresh(current) end
+            end,
+        }
+    end
+    buttons[2] = {
+        { text = "\u{F48E}", callback = function()
+            local current = resolve()
+            if not current or self:deleteHighlight(current) ~= false then UIManager:close(dialog) end
+        end },
+        { text = _("More…"), callback = function()
+            UIManager:close(dialog)
+            local current = resolve()
+            if current then self:showFullHighlightDialog(current) end
+        end },
+    }
+    dialog = ButtonDialog:new{
+        name = "koreaderx_highlight_palette", buttons = buttons,
+        anchor = function() return self:_getDialogAnchor(dialog, resolve()) end,
+    }
+    UIManager:show(dialog)
+end
+
 function ReaderHighlight:setHighlightColor(index, value)
     if not self:checkAnnotationEditingAllowed() then return false end
     local item = self.ui.annotation.annotations[index]
@@ -2887,6 +2922,7 @@ function ReaderHighlight:setHighlightColor(index, value)
         self.ui:handleEvent(Event:new("AnnotationsModified", { item }))
         UIManager:setDirty(self.dialog, "ui")
     end
+    self:setDefaultHighlightColor(value)
     return true
 end
 
