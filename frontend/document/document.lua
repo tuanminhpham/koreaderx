@@ -597,6 +597,10 @@ function Document:getPageText(pageno)
     return text
 end
 
+function Document:readHighlights()
+    return nil
+end
+
 function Document:saveHighlight(pageno, item)
     return nil
 end

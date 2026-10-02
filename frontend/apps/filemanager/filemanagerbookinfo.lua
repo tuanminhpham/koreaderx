@@ -195,6 +195,41 @@ function BookInfo:show(doc_settings_or_file, book_props)
     UIManager:show(self.kvp_widget)
 end
 
+function BookInfo:isModifiedDateChanged()
+    local doc_settings_or_file = self.ui.doc_settings
+    local book_props = self.ui.doc_props
+
+    local has_sidecar = type(doc_settings_or_file) == "table"
+    local file = has_sidecar and doc_settings_or_file:readSetting("doc_path") or doc_settings_or_file
+    local folder, filename = util.splitFilePathName(file)
+    local __, filetype = filemanagerutil.splitFileNameType(filename)
+    local attr = lfs.attributes(file)
+
+    if not book_props or not book_props.pages then
+        book_props = BookInfo.getDocProps(file, book_props)
+    end
+    
+    if not attr or not attr.modification then
+        return nil
+    end
+
+    local current_modified_date = attr.modification
+
+    local stored_modified_date = has_sidecar and doc_settings_or_file:readSetting("last_modified") or {}
+    
+    if not stored_modified_date then
+        return current_modified_date -- nếu không có metadata trước đó, xem như đã thay đổi
+    end
+
+    -- Nếu kiểu lưu trong file là số UNIX timestamp
+    if tonumber(stored_modified_date) ~= current_modified_date then
+        return current_modified_date -- nếu ngày sửa đổi hiện tại khác với ngày đã lưu, xem như đã thay đổi
+    else
+        return nil -- nếu ngày sửa đổi hiện tại bằng với ngày đã lưu, không có thay đổi
+    end
+end
+
+
 function BookInfo.getCustomProp(prop_key, filepath)
     local custom_metadata_file = DocSettings:findCustomMetadataFile(filepath)
     return custom_metadata_file

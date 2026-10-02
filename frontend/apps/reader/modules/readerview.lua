@@ -12,6 +12,8 @@ local IconWidget = require("ui/widget/iconwidget")
 local InfoMessage = require("ui/widget/infomessage")
 local Notification = require("ui/widget/notification")
 local OverlapGroup = require("ui/widget/overlapgroup")
+local SkimToWidget = require("ui/widget/skimtowidget")
+local ConfirmBox = require("ui/widget/confirmbox")
 local ReaderDogear = require("apps/reader/modules/readerdogear")
 local ReaderFlipping = require("apps/reader/modules/readerflipping")
 local ReaderFooter = require("apps/reader/modules/readerfooter")
@@ -145,7 +147,21 @@ function ReaderView:addWidgets()
     self[1] = self.dogear
     self[2] = self.footer
     self[3] = self.flipping
+    --self[2] = self.flipping
+
+    --self.skimtowidget = SkimToWidget:new{ ui = self.ui }
+    --self[4] = self.skimtowidget
 end
+
+--function ReaderView:showSkimToWidget()
+--    if not self.skimtowidget then
+--        local SkimToWidget = require("ui/widget/skimtowidget")
+--       self.skimtowidget = SkimToWidget:new{ view = self, ui = self.ui }
+--        self[4] = self.skimtowidget
+--        self:resetLayout()
+--    end
+    -- show widget, v.v.
+--end
 
 --[[--
 Register a view UI widget module for document browsing.
@@ -253,6 +269,11 @@ function ReaderView:paintTo(bb, x, y)
     if self.footer_visible then
         self.footer:paintTo(bb, x, y)
     end
+    -- paint skimtowidget ở bottom
+    --if self.skimtowidget then
+    --    local skim_h = self.skimtowidget:getHeight()
+    --    self.skimtowidget:paintTo(bb, x, self.dimen.h - skim_h)
+    --end
     -- paint top left corner indicator
     self.flipping:paintTo(bb, x, y)
     -- paint view modules
@@ -710,6 +731,9 @@ function ReaderView:recalculate()
         if self.footer_visible and not self.footer.settings.reclaim_height then
             self.visible_area.h = self.visible_area.h - self.footer:getHeight()
         end
+        --if self.skimtowidget then
+        --    self.visible_area.h = self.visible_area.h - self.skimtowidget:getHeight()
+        --end
         if self.document.configurable.writing_direction == 0 then
             -- starts from left of page_area
             self.visible_area.x = self.page_area.x
@@ -1141,22 +1165,58 @@ end
 
 function ReaderView:onCloseWidget()
     -- Stop any pending HintPage event
+
     UIManager:unschedule(self.emitHintPageEvent)
     --- @fixme: The awful readerhighlight_spec test *relies* on this pointer being left dangling...
     if not self.ui._testsuite then
         self.emitHintPageEvent = nil
+    end
+
+    local modified_date = self.ui.bookinfo:isModifiedDateChanged()
+    if modified_date then
+        self.ui.doc_settings:saveSetting("last_modified", modified_date)
+        UIManager:flushSettings()
+        --UIManager:show(InfoMessage:new{
+        --    text = _("onCloseWidget: file modified"),
+        --})
     end
 end
 
 function ReaderView:onReaderReady()
     self.ui.doc_settings:delSetting("docsettings_reset_done")
     self.settings_last_save_time = UIManager:getElapsedTimeSinceBoot()
+    --if self.skimtowidget then
+    --    UIManager:show(self.skimtowidget)
+    --else
+    --    self.skimtowidget = SkimToWidget:new{ui = self.ui,}
+    --    UIManager:show(self.skimtowidget)
+    --end
+    local modified_date = self.ui.bookinfo:isModifiedDateChanged()
+
+    if modified_date then
+        self.ui.doc_settings:saveSetting("last_modified", modified_date)
+
+        UIManager:show(ConfirmBox:new{
+            text = _("This file has been modified. Would you like to import highlights from the PDF? This will replace any local data."),
+            icon = "texture-box",
+            ok_callback = function()
+                self.ui.highlight:resetMetadatafile()
+            end,
+        })
+    end
+
 end
 
 function ReaderView:onResume()
     -- As settings were saved on suspend, reset this on resume,
     -- as there's no need for a possibly immediate save.
     self.settings_last_save_time = UIManager:getElapsedTimeSinceBoot()
+    --if self.skimtowidget then
+    --    UIManager:show(self.skimtowidget)
+    --else
+    --    self.skimtowidget = SkimToWidget:new{ui = self.ui,}
+    --    UIManager:show(self.skimtowidget)
+    --end
 end
 
 function ReaderView:checkAutoSaveSettings()

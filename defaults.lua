@@ -167,7 +167,7 @@ DCREREADER_CONFIG_WORD_EXPANSION_SOME = 5,
 DCREREADER_CONFIG_WORD_EXPANSION_MORE = 15,
 
 -- configure "mini" progress bar
-DMINIBAR_CONTAINER_HEIGHT = 14,  -- Larger means more padding at the bottom, at the risk of eating into the last line
+DMINIBAR_CONTAINER_HEIGHT = 24,  -- Larger means more padding at the bottom, at the risk of eating into the last line
 
 -- Normally, KOReader will present file lists sorted in case insensitive manner
 -- when presenting an alphatically sorted list. So the Order is "A, b, C, d".

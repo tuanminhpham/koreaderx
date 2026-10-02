@@ -6,6 +6,7 @@ local Event = require("ui/event")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local Screensaver = require("ui/screensaver")
 local UIManager = require("ui/uimanager")
+local SkimToWidget = require("ui/widget/skimtowidget")
 local logger = require("logger")
 local dbg = require("dbg")
 local util  = require("util")
@@ -67,6 +68,7 @@ function ReaderMenu:init()
 
     -- delegate gesture listener to readerui, NOP our own
     self.ges_events = nil
+    --self.exiting_app = false
 end
 
 function ReaderMenu:onGesture() end
@@ -368,7 +370,8 @@ function ReaderMenu:exitOrRestart(callback, force)
         })
         return
     end
-
+    
+    --self.exiting_app = true
     self:onTapCloseMenu()
     UIManager:nextTick(function()
         self.ui:onClose()
@@ -433,6 +436,12 @@ function ReaderMenu:onCloseReaderMenu()
     self:onSaveSettings()
     UIManager:close(self.menu_container)
     self.menu_container = nil
+    
+    --if not self.exiting_app and G_reader_settings:readSetting("show_skim_after_menu") == "1" then
+    --    G_reader_settings:saveSetting("show_skim_after_menu", "0")
+    --    UIManager:show(SkimToWidget:new{ ui = self.ui })
+    --end
+    
     return true
 end
 

@@ -142,6 +142,7 @@ local settingsList = {
     -- back
 
     -- Reader
+    toggle_highlight_navigation = {category="none", event="ToggleHighlightNavigation", title=_("Toggle highlight navigation"), reader=true},
     open_next_document_in_folder = {category="none", event="OpenNextDocumentInFolder", title=_("Open next document in folder"), reader=true, separator=true},
     ----
     show_config_menu = {category="none", event="ShowConfigMenu", title=_("Show bottom menu"), reader=true},
@@ -161,6 +162,8 @@ local settingsList = {
     first_bookmark = {category="none", event="GotoFirstBookmark", title=_("First bookmark"), reader=true},
     last_bookmark = {category="none", event="GotoLastBookmark", title=_("Last bookmark"), reader=true},
     latest_bookmark = {category="none", event="GoToLatestBookmark", title=_("Latest bookmark"), reader=true, separator=true},
+    prev_highlight_page = {category="none", event="GotoPreviousHighlightPageFromPage", title=_("Previous highlight page"), reader=true},
+    next_highlight_page = {category="none", event="GotoNextHighlightPageFromPage", title=_("Next highlight page"), reader=true},    
     ----
     back = {category="none", event="Back", title=_("Back"), filemanager=true, reader=true},
     previous_location = {category="none", event="GoBackLink", arg=true, title=_("Back to previous location"), reader=true},
@@ -181,6 +184,7 @@ local settingsList = {
     bookmarks = {category="none", event="ShowBookmark", title=_("Bookmarks"), reader=true},
     bookmark_search = {category="none", event="SearchBookmark", title=_("Bookmark search"), reader=true},
     toggle_bookmark = {category="none", event="ToggleBookmark", title=_("Toggle bookmark"), reader=true, separator=true},
+    refresh_skimtowidget = {category="none", event="RefreshSkimToWidget", title=_("Refresh SkimToWidget"), reader=true, separator=true},
     ----
     book_status = {category="none", event="ShowBookStatus", title=_("Book status"), reader=true},
     book_info = {category="none", event="ShowBookInfo", title=_("Book information"), reader=true},
@@ -375,6 +379,7 @@ local dispatcher_menu_order = {
     -- "back"
 
     -- Reader
+    "toggle_highlight_navigation",
     "open_next_document_in_folder",
     ----
     "show_config_menu",

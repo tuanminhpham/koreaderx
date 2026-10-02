@@ -70,10 +70,13 @@ return {
         rotate_ccw = nil,
     },
     gesture_reader = {
-        tap_top_left_corner = {toggle_page_flipping = true,},
+        tap_top_left_corner = {--toggle_page_flipping = true,
+                                        toc = true,},
         tap_top_right_corner = {toggle_bookmark = true,},
-        tap_right_bottom_corner = nil,
-        tap_left_bottom_corner = Device:hasFrontlight() and {toggle_frontlight = true,} or nil,
+        tap_right_bottom_corner = {--toggle_highlight_navigation = true
+                                        next_highlight_page = true,},
+        tap_left_bottom_corner = --Device:hasFrontlight() and {toggle_frontlight = true,} or nil,
+                                    { prev_highlight_page = true,},
         hold_top_left_corner = nil,
         hold_top_right_corner = nil,
         hold_bottom_left_corner = nil,

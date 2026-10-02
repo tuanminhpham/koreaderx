@@ -59,6 +59,12 @@ function Migration:convertAction(location, ges, action)
         result = {next_bookmark = true,}
     elseif action == "prev_bookmark" then
         result = {prev_bookmark = true,}
+    elseif action == "next_highlight_page" then
+        result = {next_highlight_page = true,}
+    elseif action == "prev_highlight_page" then
+        result = {prev_highlight_page = true,}
+    elseif action == "toggle_highlight_navigation" then
+        result = {toggle_highlight_navigation = true,}
     elseif action == "go_to" then
         result = {go_to = true,}
     elseif action == "skim" then

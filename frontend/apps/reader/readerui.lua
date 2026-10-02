@@ -2,75 +2,76 @@
 ReaderUI is an abstraction for a reader interface.
 
 It works using data gathered from a document interface.
-]]--
+]] --
 
-local BD = require("ui/bidi")
-local Device = require("device")
-local DeviceListener = require("device/devicelistener")
-local DocCache = require("document/doccache")
-local DocSettings = require("docsettings")
-local DocumentRegistry = require("document/documentregistry")
-local Event = require("ui/event")
-local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
-local FileManagerCollection = require("apps/filemanager/filemanagercollection")
-local FileManagerHistory = require("apps/filemanager/filemanagerhistory")
+local BD                      = require("ui/bidi")
+local Device                  = require("device")
+local DeviceListener          = require("device/devicelistener")
+local DocCache                = require("document/doccache")
+local DocSettings             = require("docsettings")
+local DocumentRegistry        = require("document/documentregistry")
+local Event                   = require("ui/event")
+local FileManagerBookInfo     = require("apps/filemanager/filemanagerbookinfo")
+local FileManagerCollection   = require("apps/filemanager/filemanagercollection")
+local FileManagerHistory      = require("apps/filemanager/filemanagerhistory")
 local FileManagerFileSearcher = require("apps/filemanager/filemanagerfilesearcher")
-local FileManagerShortcuts = require("apps/filemanager/filemanagershortcuts")
-local InfoMessage = require("ui/widget/infomessage")
-local InputContainer = require("ui/widget/container/inputcontainer")
-local InputDialog = require("ui/widget/inputdialog")
-local LanguageSupport = require("languagesupport")
-local NetworkListener = require("ui/network/networklistener")
-local Notification = require("ui/widget/notification")
-local PluginLoader = require("pluginloader")
+local FileManagerShortcuts    = require("apps/filemanager/filemanagershortcuts")
+local InfoMessage             = require("ui/widget/infomessage")
+local InputContainer          = require("ui/widget/container/inputcontainer")
+local InputDialog             = require("ui/widget/inputdialog")
+local LanguageSupport         = require("languagesupport")
+local NetworkListener         = require("ui/network/networklistener")
+local Notification            = require("ui/widget/notification")
+local PluginLoader            = require("pluginloader")
 local ReaderActivityIndicator = require("apps/reader/modules/readeractivityindicator")
-local ReaderAnnotation = require("apps/reader/modules/readerannotation")
-local ReaderBack = require("apps/reader/modules/readerback")
-local ReaderBookmark = require("apps/reader/modules/readerbookmark")
-local ReaderConfig = require("apps/reader/modules/readerconfig")
-local ReaderCoptListener = require("apps/reader/modules/readercoptlistener")
-local ReaderCropping = require("apps/reader/modules/readercropping")
-local ReaderDeviceStatus = require("apps/reader/modules/readerdevicestatus")
-local ReaderDictionary = require("apps/reader/modules/readerdictionary")
-local ReaderFont = require("apps/reader/modules/readerfont")
-local ReaderGoto = require("apps/reader/modules/readergoto")
-local ReaderHandMade = require("apps/reader/modules/readerhandmade")
-local ReaderHinting = require("apps/reader/modules/readerhinting")
-local ReaderHighlight = require("apps/reader/modules/readerhighlight")
-local ReaderScrolling = require("apps/reader/modules/readerscrolling")
-local ReaderKoptListener = require("apps/reader/modules/readerkoptlistener")
-local ReaderLink = require("apps/reader/modules/readerlink")
-local ReaderMenu = require("apps/reader/modules/readermenu")
-local ReaderPageMap = require("apps/reader/modules/readerpagemap")
-local ReaderPanning = require("apps/reader/modules/readerpanning")
-local ReaderPaging = require("apps/reader/modules/readerpaging")
-local ReaderRolling = require("apps/reader/modules/readerrolling")
-local ReaderSearch = require("apps/reader/modules/readersearch")
-local ReaderStatus = require("apps/reader/modules/readerstatus")
-local ReaderStyleTweak = require("apps/reader/modules/readerstyletweak")
-local ReaderThumbnail = require("apps/reader/modules/readerthumbnail")
-local ReaderToc = require("apps/reader/modules/readertoc")
-local ReaderTypeset = require("apps/reader/modules/readertypeset")
-local ReaderTypography = require("apps/reader/modules/readertypography")
-local ReaderUserHyph = require("apps/reader/modules/readeruserhyph")
-local ReaderView = require("apps/reader/modules/readerview")
-local ReaderWikipedia = require("apps/reader/modules/readerwikipedia")
-local ReaderZooming = require("apps/reader/modules/readerzooming")
-local Screenshoter = require("ui/widget/screenshoter")
-local SettingsMigration = require("ui/data/settings_migration")
-local UIManager = require("ui/uimanager")
-local ffiUtil  = require("ffi/util")
-local filemanagerutil = require("apps/filemanager/filemanagerutil")
-local lfs = require("libs/libkoreader-lfs")
-local logger = require("logger")
-local time = require("ui/time")
-local util = require("util")
-local _ = require("gettext")
-local Input = Device.input
-local Screen = Device.screen
-local T = ffiUtil.template
+local ReaderAnnotation        = require("apps/reader/modules/readerannotation")
+local ReaderBack              = require("apps/reader/modules/readerback")
+local ReaderBookmark          = require("apps/reader/modules/readerbookmark")
+local ReaderConfig            = require("apps/reader/modules/readerconfig")
+local ReaderCoptListener      = require("apps/reader/modules/readercoptlistener")
+local ReaderCropping          = require("apps/reader/modules/readercropping")
+local ReaderDeviceStatus      = require("apps/reader/modules/readerdevicestatus")
+local ReaderDictionary        = require("apps/reader/modules/readerdictionary")
+local ReaderFont              = require("apps/reader/modules/readerfont")
+local ReaderGoto              = require("apps/reader/modules/readergoto")
+local ReaderHandMade          = require("apps/reader/modules/readerhandmade")
+local ReaderHinting           = require("apps/reader/modules/readerhinting")
+local ReaderHighlight         = require("apps/reader/modules/readerhighlight")
+local ReaderScrolling         = require("apps/reader/modules/readerscrolling")
+local ReaderKoptListener      = require("apps/reader/modules/readerkoptlistener")
+local ReaderLink              = require("apps/reader/modules/readerlink")
+local ReaderMenu              = require("apps/reader/modules/readermenu")
+local ReaderPageMap           = require("apps/reader/modules/readerpagemap")
+local ReaderPanning           = require("apps/reader/modules/readerpanning")
+local ReaderPaging            = require("apps/reader/modules/readerpaging")
+local ReaderRolling           = require("apps/reader/modules/readerrolling")
+local ReaderSearch            = require("apps/reader/modules/readersearch")
+local ReaderStatus            = require("apps/reader/modules/readerstatus")
+local ReaderStyleTweak        = require("apps/reader/modules/readerstyletweak")
+local ReaderThumbnail         = require("apps/reader/modules/readerthumbnail")
+local ReaderToc               = require("apps/reader/modules/readertoc")
+local ReaderTypeset           = require("apps/reader/modules/readertypeset")
+local ReaderTypography        = require("apps/reader/modules/readertypography")
+local ReaderUserHyph          = require("apps/reader/modules/readeruserhyph")
+local ReaderView              = require("apps/reader/modules/readerview")
+local ReaderWikipedia         = require("apps/reader/modules/readerwikipedia")
+local ReaderZooming           = require("apps/reader/modules/readerzooming")
+local Screenshoter            = require("ui/widget/screenshoter")
+local SettingsMigration       = require("ui/data/settings_migration")
+--local LinearLayout            = require("ui/widget/linearlayout")
+local UIManager               = require("ui/uimanager")
+local ffiUtil                 = require("ffi/util")
+local filemanagerutil         = require("apps/filemanager/filemanagerutil")
+local lfs                     = require("libs/libkoreader-lfs")
+local logger                  = require("logger")
+local time                    = require("ui/time")
+local util                    = require("util")
+local _                       = require("gettext")
+local Input                   = Device.input
+local Screen                  = Device.screen
+local T                       = ffiUtil.template
 
-local ReaderUI = InputContainer:extend{
+local ReaderUI                = InputContainer:extend {
     name = "ReaderUI",
     active_widgets = nil, -- array
 
@@ -113,7 +114,7 @@ function ReaderUI:init()
     -- cap screen refresh on pan to 2 refreshes per second
     local pan_rate = Screen.low_pan_rate and 2.0 or 30.0
 
-    Input:inhibitInput(true) -- Inhibit any past and upcoming input events.
+    Input:inhibitInput(true)    -- Inhibit any past and upcoming input events.
     Device:setIgnoreInput(true) -- Avoid ANRs on Android with unprocessed events.
 
     self.postInitCallback = {}
@@ -131,21 +132,21 @@ function ReaderUI:init()
 
     -- a view container (so it must be child #1!)
     -- all paintable widgets need to be a child of reader view
-    self:registerModule("view", ReaderView:new{
+    self:registerModule("view", ReaderView:new {
         dialog = self.dialog,
         dimen = self.dimen,
         ui = self,
         document = self.document,
     })
     -- goto link controller
-    self:registerModule("link", ReaderLink:new{
+    self:registerModule("link", ReaderLink:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
         document = self.document,
     })
     -- text highlight
-    self:registerModule("highlight", ReaderHighlight:new{
+    self:registerModule("highlight", ReaderHighlight:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
@@ -154,30 +155,30 @@ function ReaderUI:init()
     -- menu widget should be registered after link widget and highlight widget
     -- so that taps on link and highlight areas won't popup reader menu
     -- reader menu controller
-    self:registerModule("menu", ReaderMenu:new{
+    self:registerModule("menu", ReaderMenu:new {
         view = self.view,
         ui = self
     })
     -- Handmade/custom ToC and hidden flows
-    self:registerModule("handmade", ReaderHandMade:new{
+    self:registerModule("handmade", ReaderHandMade:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
         document = self.document,
     })
     -- Table of content controller
-    self:registerModule("toc", ReaderToc:new{
+    self:registerModule("toc", ReaderToc:new {
         dialog = self.dialog,
         view = self.view,
         ui = self
     })
     -- bookmark controller
-    self:registerModule("bookmark", ReaderBookmark:new{
+    self:registerModule("bookmark", ReaderBookmark:new {
         dialog = self.dialog,
         view = self.view,
         ui = self
     })
-    self:registerModule("annotation", ReaderAnnotation:new{
+    self:registerModule("annotation", ReaderAnnotation:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
@@ -185,45 +186,45 @@ function ReaderUI:init()
     })
     -- reader goto controller
     -- "goto" being a dirty keyword in Lua?
-    self:registerModule("gotopage", ReaderGoto:new{
+    self:registerModule("gotopage", ReaderGoto:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
         document = self.document,
     })
-    self:registerModule("languagesupport", LanguageSupport:new{
+    self:registerModule("languagesupport", LanguageSupport:new {
         ui = self,
         document = self.document,
     })
     -- dictionary
-    self:registerModule("dictionary", ReaderDictionary:new{
+    self:registerModule("dictionary", ReaderDictionary:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
         document = self.document,
     })
     -- wikipedia
-    self:registerModule("wikipedia", ReaderWikipedia:new{
+    self:registerModule("wikipedia", ReaderWikipedia:new {
         dialog = self.dialog,
         view = self.view,
         ui = self,
         document = self.document,
     })
     -- screenshot controller
-    self:registerModule("screenshot", Screenshoter:new{
+    self:registerModule("screenshot", Screenshoter:new {
         prefix = 'Reader',
         dialog = self.dialog,
         view = self.view,
         ui = self
     }, true)
     -- device status controller
-    self:registerModule("devicestatus", ReaderDeviceStatus:new{
+    self:registerModule("devicestatus", ReaderDeviceStatus:new {
         ui = self,
     })
     -- configurable controller
     if self.document.info.configurable then
         -- config panel controller
-        self:registerModule("config", ReaderConfig:new{
+        self:registerModule("config", ReaderConfig:new {
             configurable = self.document.configurable,
             dialog = self.dialog,
             view = self.view,
@@ -232,7 +233,7 @@ function ReaderUI:init()
         })
         if self.document.info.has_pages then
             -- kopt option controller
-            self:registerModule("koptlistener", ReaderKoptListener:new{
+            self:registerModule("koptlistener", ReaderKoptListener:new {
                 dialog = self.dialog,
                 view = self.view,
                 ui = self,
@@ -240,7 +241,7 @@ function ReaderUI:init()
             })
         else
             -- cre option controller
-            self:registerModule("crelistener", ReaderCoptListener:new{
+            self:registerModule("crelistener", ReaderCoptListener:new {
                 dialog = self.dialog,
                 view = self.view,
                 ui = self,
@@ -249,7 +250,7 @@ function ReaderUI:init()
         end
         -- activity indicator for when some settings take time to take effect (Kindle under KPV)
         if not ReaderActivityIndicator:isStub() then
-            self:registerModule("activityindicator", ReaderActivityIndicator:new{
+            self:registerModule("activityindicator", ReaderActivityIndicator:new {
                 dialog = self.dialog,
                 view = self.view,
                 ui = self,
@@ -260,34 +261,34 @@ function ReaderUI:init()
     -- for page specific controller
     if self.document.info.has_pages then
         -- cropping controller
-        self:registerModule("cropping", ReaderCropping:new{
+        self:registerModule("cropping", ReaderCropping:new {
             dialog = self.dialog,
             view = self.view,
             ui = self,
             document = self.document,
         })
         -- paging controller
-        self:registerModule("paging", ReaderPaging:new{
+        self:registerModule("paging", ReaderPaging:new {
             pan_rate = pan_rate,
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- zooming controller
-        self:registerModule("zooming", ReaderZooming:new{
+        self:registerModule("zooming", ReaderZooming:new {
             dialog = self.dialog,
             document = self.document,
             view = self.view,
             ui = self
         })
         -- panning controller
-        self:registerModule("panning", ReaderPanning:new{
+        self:registerModule("panning", ReaderPanning:new {
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- hinting controller
-        self:registerModule("hinting", ReaderHinting:new{
+        self:registerModule("hinting", ReaderHinting:new {
             dialog = self.dialog,
             zoom = self.zooming,
             view = self.view,
@@ -320,39 +321,39 @@ function ReaderUI:init()
             -- logger.dbg(self.document:getHTMLFromXPointer(".0", 0x6830))
         end)
         -- styletweak controller (must be before typeset controller)
-        self:registerModule("styletweak", ReaderStyleTweak:new{
+        self:registerModule("styletweak", ReaderStyleTweak:new {
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- typeset controller
-        self:registerModule("typeset", ReaderTypeset:new{
+        self:registerModule("typeset", ReaderTypeset:new {
             configurable = self.document.configurable,
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- font menu
-        self:registerModule("font", ReaderFont:new{
+        self:registerModule("font", ReaderFont:new {
             configurable = self.document.configurable,
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- user hyphenation (must be registered before typography)
-        self:registerModule("userhyph", ReaderUserHyph:new{
+        self:registerModule("userhyph", ReaderUserHyph:new {
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- typography menu (replaces previous hyphenation menu / ReaderHyphenation)
-        self:registerModule("typography", ReaderTypography:new{
+        self:registerModule("typography", ReaderTypography:new {
             dialog = self.dialog,
             view = self.view,
             ui = self
         })
         -- rolling controller
-        self:registerModule("rolling", ReaderRolling:new{
+        self:registerModule("rolling", ReaderRolling:new {
             configurable = self.document.configurable,
             pan_rate = pan_rate,
             dialog = self.dialog,
@@ -360,7 +361,7 @@ function ReaderUI:init()
             ui = self
         })
         -- pagemap controller
-        self:registerModule("pagemap", ReaderPageMap:new{
+        self:registerModule("pagemap", ReaderPageMap:new {
             dialog = self.dialog,
             view = self.view,
             ui = self
@@ -368,55 +369,55 @@ function ReaderUI:init()
     end
     self.disable_double_tap = G_reader_settings:nilOrTrue("disable_double_tap")
     -- scrolling (scroll settings + inertial scrolling)
-    self:registerModule("scrolling", ReaderScrolling:new{
+    self:registerModule("scrolling", ReaderScrolling:new {
         pan_rate = pan_rate,
         dialog = self.dialog,
         ui = self,
         view = self.view,
     })
     -- back location stack
-    self:registerModule("back", ReaderBack:new{
+    self:registerModule("back", ReaderBack:new {
         ui = self,
         view = self.view,
     })
     -- fulltext search
-    self:registerModule("search", ReaderSearch:new{
+    self:registerModule("search", ReaderSearch:new {
         dialog = self.dialog,
         view = self.view,
         ui = self
     })
     -- book status
-    self:registerModule("status", ReaderStatus:new{
+    self:registerModule("status", ReaderStatus:new {
         ui = self,
         document = self.document,
     })
     -- thumbnails service (book map, page browser)
-    self:registerModule("thumbnail", ReaderThumbnail:new{
+    self:registerModule("thumbnail", ReaderThumbnail:new {
         ui = self,
         document = self.document,
     })
     -- file searcher
-    self:registerModule("filesearcher", FileManagerFileSearcher:new{
+    self:registerModule("filesearcher", FileManagerFileSearcher:new {
         dialog = self.dialog,
         ui = self,
     })
     -- folder shortcuts
-    self:registerModule("folder_shortcuts", FileManagerShortcuts:new{
+    self:registerModule("folder_shortcuts", FileManagerShortcuts:new {
         dialog = self.dialog,
         ui = self,
     })
     -- history view
-    self:registerModule("history", FileManagerHistory:new{
+    self:registerModule("history", FileManagerHistory:new {
         dialog = self.dialog,
         ui = self,
     })
     -- collections/favorites view
-    self:registerModule("collections", FileManagerCollection:new{
+    self:registerModule("collections", FileManagerCollection:new {
         dialog = self.dialog,
         ui = self,
     })
     -- book info
-    self:registerModule("bookinfo", FileManagerBookInfo:new{
+    self:registerModule("bookinfo", FileManagerBookInfo:new {
         dialog = self.dialog,
         document = self.document,
         ui = self,
@@ -446,7 +447,7 @@ function ReaderUI:init()
         if ok then
             self:registerModule(plugin_module.name, plugin_or_err)
             logger.dbg("RD loaded plugin", plugin_module.name,
-                        "at", plugin_module.path)
+                "at", plugin_module.path)
         end
     end
 
@@ -456,7 +457,7 @@ function ReaderUI:init()
     -- we only read settings after all the widgets are initialized
     self:handleEvent(Event:new("ReadSettings", self.doc_settings))
 
-    for _,v in ipairs(self.postInitCallback) do
+    for _, v in ipairs(self.postInitCallback) do
         v()
     end
     self.postInitCallback = nil
@@ -488,7 +489,7 @@ function ReaderUI:init()
     -- Need the same event for PDF document
     self:handleEvent(Event:new("ReaderReady", self.doc_settings))
 
-    for _,v in ipairs(self.postReaderReadyCallback) do
+    for _, v in ipairs(self.postReaderReadyCallback) do
         v()
     end
     self.postReaderReadyCallback = nil
@@ -502,11 +503,27 @@ function ReaderUI:init()
     --     print("  "..tzone.def.id)
     -- end
 
+    --local ok, toolbar = pcall(require, "apps/floatingtoolbar")
+    --if ok and toolbar and toolbar.show then
+    --    toolbar:show()
+    --    UIManager:show(Notification:new{text = _("load floating_toolbar: ok"), })
+    --else
+    --    UIManager:show(Notification:new{text = _("load floating_toolbar: fail"), })
+    --end
+    
+    --self:registerPostReaderReadyCallback(function()
+    --    UIManager:show(SkimToWidget:new {
+    --        ui = self,
+    --        document = self.document,
+    --    })
+    --end)
+
     if ReaderUI.instance == nil then
         logger.dbg("Spinning up new ReaderUI instance", tostring(self))
     else
         -- Should never happen, given what we did in (do)showReader...
-        logger.err("ReaderUI instance mismatch! Opened", tostring(self), "while we still have an existing instance:", tostring(ReaderUI.instance), debug.traceback())
+        logger.err("ReaderUI instance mismatch! Opened", tostring(self), "while we still have an existing instance:",
+            tostring(ReaderUI.instance), debug.traceback())
     end
     ReaderUI.instance = self
 end
@@ -595,14 +612,14 @@ function ReaderUI:showReader(file, provider, seamless)
 
     file = ffiUtil.realpath(file)
     if lfs.attributes(file, "mode") ~= "file" then
-        UIManager:show(InfoMessage:new{
-             text = T(_("File '%1' does not exist."), BD.filepath(filemanagerutil.abbreviate(file)))
+        UIManager:show(InfoMessage:new {
+            text = T(_("File '%1' does not exist."), BD.filepath(filemanagerutil.abbreviate(file)))
         })
         return
     end
 
     if not DocumentRegistry:hasProvider(file) and provider == nil then
-        UIManager:show(InfoMessage:new{
+        UIManager:show(InfoMessage:new {
             text = T(_("File '%1' is not supported."), BD.filepath(filemanagerutil.abbreviate(file)))
         })
         self:showFileManager(file)
@@ -618,7 +635,7 @@ function ReaderUI:showReader(file, provider, seamless)
 end
 
 function ReaderUI:showReaderCoroutine(file, provider, seamless)
-    UIManager:show(InfoMessage:new{
+    UIManager:show(InfoMessage:new {
         text = T(_("Opening file '%1'."), BD.filepath(filemanagerutil.abbreviate(file))),
         timeout = 0.0,
         invisible = seamless,
@@ -637,7 +654,7 @@ function ReaderUI:showReaderCoroutine(file, provider, seamless)
             -- Restore input if we crashed before ReaderUI has restored it
             Device:setIgnoreInput(false)
             Input:inhibitInputUntil(0.2)
-            UIManager:show(InfoMessage:new{
+            UIManager:show(InfoMessage:new {
                 text = _("No reader engine for this file or invalid file.")
             })
             self:showFileManager(file)
@@ -652,12 +669,13 @@ function ReaderUI:doShowReader(file, provider, seamless)
     logger.info("opening file", file)
     -- Only keep a single instance running
     if ReaderUI.instance then
-        logger.warn("ReaderUI instance mismatch! Tried to spin up a new instance, while we still have an existing one:", tostring(ReaderUI.instance))
+        logger.warn("ReaderUI instance mismatch! Tried to spin up a new instance, while we still have an existing one:",
+            tostring(ReaderUI.instance))
         ReaderUI.instance:onClose()
     end
     local document = DocumentRegistry:openDocument(file, provider)
     if not document then
-        UIManager:show(InfoMessage:new{
+        UIManager:show(InfoMessage:new {
             text = _("No reader engine for this file or invalid file.")
         })
         self:showFileManager(file)
@@ -675,7 +693,7 @@ function ReaderUI:doShowReader(file, provider, seamless)
             end
         end
     end
-    local reader = ReaderUI:new{
+    local reader = ReaderUI:new {
         dimen = Screen:getSize(),
         covers_fullscreen = true, -- hint for UIManager:_repaint()
         document = document,
@@ -695,11 +713,41 @@ function ReaderUI:doShowReader(file, provider, seamless)
     end
 
     UIManager:show(reader, seamless and "ui" or "full")
+    
+    --local ReaderFooter = require("apps/reader/modules/readerfooter")
+    --local layout = LinearLayout:new {
+    --    orientation = "vertical",
+    --    spacing = 0,
+    --    padding = 0,
+    --}
+    --reader:setLayoutParams { weight = 1 }
+    --layout:addChild(reader)
+    --local footer = ReaderFooter:new { ui = reader }
+    --layout:addChild(footer)
+    --UIManager:show(layout, seamless and "ui" or "full")
+
+    --local BottomContainer = require("ui/widget/bottomcontainer")
+    --local layout = BottomContainer:new {
+    --    child = reader,
+    --    bottom = ReaderFooter:new { ui = reader },
+    --}
+    --UIManager:show(layout, "full")
+
+    --local VerticalGroup = require("ui/widget/verticalgroup")
+    --local ReaderFooter = require("apps/reader/modules/readerfooter")
+    --local layout = VerticalGroup:new()
+    -- Gắn vùng đọc chính (ReaderUI)
+    --layout[#layout + 1] = reader -- đây là ReaderUI:new{...}
+    -- Gắn footer bên dưới
+    --local footer = ReaderFooter:new { ui = reader }
+    --footer:setSize(nil, Screen:scaleBySize(30)) -- chỉnh theo chiều cao mong muốn
+    --layout[#layout + 1] = footer
+    --UIManager:show(layout, "full")
 end
 
 function ReaderUI:unlockDocumentWithPassword(document, try_again)
     logger.dbg("show input password dialog")
-    self.password_dialog = InputDialog:new{
+    self.password_dialog = InputDialog:new {
         title = try_again and _("Password is incorrect, try again?")
             or _("Input document password"),
         buttons = {
@@ -793,7 +841,8 @@ function ReaderUI:onCloseWidget()
     if ReaderUI.instance == self then
         logger.dbg("Tearing down ReaderUI", tostring(self))
     else
-        logger.warn("ReaderUI instance mismatch! Closed", tostring(self), "while the active one is supposed to be", tostring(ReaderUI.instance))
+        logger.warn("ReaderUI instance mismatch! Closed", tostring(self), "while the active one is supposed to be",
+            tostring(ReaderUI.instance))
     end
     ReaderUI.instance = nil
     self._coroutine = nil
@@ -809,7 +858,7 @@ function ReaderUI:dealWithLoadDocumentFailure()
     local _coroutine = coroutine.running()
     if coroutine then
         logger.warn("crengine failed recognizing or parsing this file: unsupported or invalid document")
-        UIManager:show(InfoMessage:new{
+        UIManager:show(InfoMessage:new {
             text = _("Failed recognizing or parsing this file: unsupported or invalid document.\nKOReader will exit now."),
             dismiss_callback = function()
                 coroutine.resume(_coroutine, false)
@@ -847,7 +896,7 @@ function ReaderUI:reloadDocument(after_close_callback, seamless)
     self:handleEvent(Event:new("CloseReaderMenu"))
     self:handleEvent(Event:new("CloseConfigMenu"))
     self:handleEvent(Event:new("PreserveCurrentSession")) -- don't reset statistics' start_current_period
-    self.highlight:onClose() -- close highlight dialog if any
+    self.highlight:onClose()                              -- close highlight dialog if any
     self:onClose(false)
     if after_close_callback then
         -- allow caller to do stuff between close an re-open

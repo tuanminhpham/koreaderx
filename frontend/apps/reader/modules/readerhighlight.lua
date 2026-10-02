@@ -20,6 +20,9 @@ local Size = require("ui/size")
 local ffiUtil = require("ffi/util")
 local time = require("ui/time")
 local _ = require("gettext")
+local NetworkMgr = require("ui/network/manager")
+local Trapper = require("ui/trapper")
+local PluginLoader = require("pluginloader")
 local C_ = _.pgettext
 local N_ = _.ngettext
 local T = ffiUtil.template
@@ -28,15 +31,15 @@ local Screen = Device.screen
 local ReaderHighlight = InputContainer:extend{
     -- Matches what is available in BlitBuffer.HIGHLIGHT_COLORS
     highlight_colors = {
-        {_("Red"), "red"},
-        {_("Orange"), "orange"},
+--        {_("Red"), "red"},
+--        {_("Orange"), "orange"},
         {_("Yellow"), "yellow"},
         {_("Green"), "green"},
-        {_("Olive"), "olive"},
+--        {_("Olive"), "olive"},
         {_("Cyan"), "cyan"},
-        {_("Blue"), "blue"},
+--        {_("Blue"), "blue"},
         {_("Purple"), "purple"},
-        {_("Gray"), "gray"},
+--        {_("Gray"), "gray"},
     },
 }
 
@@ -49,6 +52,214 @@ local function inside_box(pos, box)
             return true
         end
     end
+end
+
+function ReaderHighlight:quadpointsFromPboxes(pboxes)
+    -- will also need mupdf_h.lua to be evaluated once
+    -- but this is guaranteed at this point
+    local n = #pboxes
+    local quadpoints = ffi.new("fz_quad[?]", n)
+    for i=1, n do
+        -- The order must be left bottom, right bottom, left top, right top.
+        -- https://bugs.ghostscript.com/show_bug.cgi?id=695130
+        quadpoints[i-1].ll.x = pboxes[i].x
+        quadpoints[i-1].ll.y = pboxes[i].y + pboxes[i].h - 1
+        quadpoints[i-1].lr.x = pboxes[i].x + pboxes[i].w - 1
+        quadpoints[i-1].lr.y = pboxes[i].y + pboxes[i].h - 1
+        quadpoints[i-1].ul.x = pboxes[i].x
+        quadpoints[i-1].ul.y = pboxes[i].y
+        quadpoints[i-1].ur.x = pboxes[i].x + pboxes[i].w - 1
+        quadpoints[i-1].ur.y = pboxes[i].y
+    end
+    return quadpoints, n
+end
+
+function ReaderHighlight:quadpointsToPboxes(quadpoints, n)
+    local pboxes = {}
+    for i=1, n do
+        table.insert(pboxes, {
+            x = quadpoints[i].ul.x,
+            y = quadpoints[i].ul.y,
+            w = quadpoints[i].lr.x - quadpoints[i].ul.x + 1,
+            h = quadpoints[i].lr.y - quadpoints[i].ul.y + 1,
+        })
+    end
+    return pboxes
+end
+
+-- the ul with min y
+-- x ngang, y docj
+function ReaderHighlight:quadpointsToPos0xy(quadpoints, n)
+    local pos0xy = {
+        x = quadpoints[1].ul.x,
+        y = quadpoints[1].ul.y,
+    }
+    for i=2, n do
+        if pos0xy.y > quadpoints[i].ul.y then
+            pos0xy.x = quadpoints[i].ul.x
+            pos0xy.y = quadpoints[i].ul.y
+        end
+    end
+    local h = quadpoints[1].ll.y - quadpoints[1].ul.y
+    pos0xy.x = pos0xy.x + h/4
+    pos0xy.y = pos0xy.y + h/4
+    return pos0xy
+end
+
+-- the lr with max y
+-- x ngang, y docj
+function ReaderHighlight:quadpointsToPos1xy(quadpoints, n)
+    local pos1xy = {
+        x = quadpoints[1].lr.x,
+        y = quadpoints[1].lr.y,
+    }
+    for i=2, n do
+        if pos1xy.y < quadpoints[i].lr.y then
+            pos1xy.x = quadpoints[i].lr.x
+            pos1xy.y = quadpoints[i].lr.y
+        end
+    end
+    local h = quadpoints[1].ll.y - quadpoints[1].ul.y
+    pos1xy.x = pos1xy.x - h/4
+    pos1xy.y = pos1xy.y - h/4
+    return pos1xy
+end
+
+function ReaderHighlight:resetMetadatafile()
+    --local highlight_write_into_pdf = G_reader_settings:readSetting("highlight_write_into_pdf")
+    --G_reader_settings:makeFalse("highlight_write_into_pdf")
+    local highlight_write_into_pdf = self.highlight_write_into_pdf
+    self.highlight_write_into_pdf = false -- only delete highlights from database, do not delete highlights from pdf
+    -- UIManager:show(Notification:new{text = _("resetMetadatafile."), })
+    --[[
+    highlights, idx_offset = self:getPageSavedHighlights(1)
+    UIManager:show(Notification:new{
+        text = T(_("The number of highlights in page 1 is '%1'."), #highlights),
+    })
+    ]]
+
+    if not self.ui.annotation or not self.ui.annotation.annotations then
+        UIManager:show(Notification:new{text = _("Annotations data is not available.")})
+        return
+    end
+
+    local file_path = "/storage/emulated/0/Books/test/annotations.txt"  
+    local file = io.open(file_path, "w")
+    --if not file then
+    --    UIManager:show(Notification:new{text = _("Failed to open file for writing.")})
+    --    return
+    --end
+    
+    --UIManager:show(Notification:new{text = T(_("Number of highlights in metadata: '%1'."), #self.ui.annotation.annotations),})
+    
+    local count = 0
+    for i = #self.ui.annotation.annotations, 1, -1 do
+        if self.ui.annotation.annotations[i].drawer then
+            count = count + 1
+            self:deleteHighlight(i)
+            --UIManager:show(Notification:new{text = T(_("Deleted highlight: '%1'."), i),})
+            --self.ui.bookmark:removeItemByIndex(i)
+        end
+    end
+    UIManager:show(Notification:new{text = T(_("Number of highlights DELETED from metadata: '%1'."), count),})
+    
+    -- self.ui.annotation.annotations = {}
+    if highlight_write_into_pdf then
+        self.highlight_write_into_pdf = true
+        -- G_reader_settings:makeTrue("highlight_write_into_pdf")
+    else
+        self.highlight_write_into_pdf = false
+        -- G_reader_settings:makeFalse("highlight_write_into_pdf")
+    end
+    
+    --G_reader_settings:delSetting("annotations")
+    --self.ui.doc_settings:delSetting("annotations")
+    --self.ui.doc_settings:readSetting("annotations", self.ui.annotation.annotations)
+    --UIManager:show(Notification:new{text = T(_("Number of highlights in metadata after deleted: '%1'."), #self.ui.annotation.annotations),})
+
+    count = 0
+    if not self.document or not self.document.getPageCount then
+        UIManager:show(Notification:new{text = _("Document is not available or invalid.")})
+        return
+    else
+        UIManager:show(Notification:new{text = T(_("Number of pages: '%1'."), self.document:getPageCount()),})
+    end
+
+    for p1 = 1, self.document:getPageCount() do
+        if not self.document.readHighlights then
+            UIManager:show(Notification:new{text = _("Document does not support reading highlights.")})
+           return
+        end
+
+        local all_annots = self.document:readHighlights(p1)
+        if all_annots then
+            UIManager:show(Notification:new{text = T(_("Number of annots '%1'."), #all_annots)})
+        else
+            UIManager:show(Notification:new{text = _("No annotations found on page %1."):format(p1)})
+        end
+        
+        for i, annot in ipairs(all_annots) do
+            if annot.quadpoints and #annot.quadpoints > 0 then
+                local quadpoints = annot.quadpoints
+                local pos0xy = self:quadpointsToPos0xy(quadpoints, #quadpoints)
+                local pos1xy = self:quadpointsToPos1xy(quadpoints, #quadpoints)
+                local item = {
+                    page = p1,
+                    pageno = p1,
+                    pboxes = self:quadpointsToPboxes(quadpoints, #quadpoints),
+                    pos0 = {
+                        page = p1,
+                        rotation = 0,
+                        x = pos0xy.x,
+                        y = pos0xy.y,
+                    },
+                    pos1 = {
+                        page = p1,
+                        rotation = 0,
+                        x = pos1xy.x,
+                        y = pos1xy.y,
+                    },
+                    text = annot.text or "", -- util.cleanupSelectedText(self.selected_text.text)
+                    drawer = self.view.highlight.saved_drawer,
+                    color = annot.color,
+                    chapter = self.ui.toc:getTocTitleByPage(p1),
+                }
+                count = count + 1
+                local index = self.ui.annotation:addItem(item)
+                self.view.footer:maybeUpdateFooter()
+                self.ui:handleEvent(Event:new("AnnotationsModified", { item, nb_highlights_added = 1 }))
+                
+                file:write("Annotation " .. (i) .. ":\n")
+                for j, point in ipairs(quadpoints) do    
+                    file:write(string.format(
+                        "  Point %d:\nUL(%f, %f)\nUR(%f, %f)\nLL(%f, %f)\nLR(%f, %f)\n",
+                        j,
+                        point.ul.x, point.ul.y,
+                        point.ur.x, point.ur.y,
+                        point.ll.x, point.ll.y,
+                        point.lr.x, point.lr.y
+                    ))
+                end
+                file:write(string.format(
+                        "  pos0xy(%f, %f)\npos1xy(%f, %f)\n\n",
+                        item.pos0.x, item.pos0.y,
+                        item.pos1.x, item.pos1.y
+                    ))
+                    
+            end
+        end
+        
+    end
+
+    --file:write("\nAbsolute path to this file: " .. file_path .. "\n")
+    file:close()
+    
+    --self.ui.doc_settings:saveSetting("annotations", self.annotations)
+    -- self:handleEvent(Event:new("SaveSettings"))
+    --G_reader_settings:flush()
+    --UIManager:setDirty(self.dialog, "ui")
+    --self.ui.doc_settings:flush(self.ui.doc_settings.data, true)
+    UIManager:show(Notification:new{text = T(_("Imported '%1' highlights from pdf to metadata."), count),})
 end
 
 function ReaderHighlight:init()
@@ -445,12 +656,15 @@ function ReaderHighlight:addToMainMenu(menu_items)
         callback = function(touchmenu_instance) -- set color for new highlights in this book
             local function apply_color(color)
                 self.view.highlight.saved_color = color
+                G_reader_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
+                self.ui.doc_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
                 touchmenu_instance:updateItems()
             end
             self:showHighlightColorDialog(apply_color)
         end,
         hold_callback = function(touchmenu_instance) -- set color for new highlights in new books
             G_reader_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
+            self.ui.doc_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
             touchmenu_instance:updateItems()
         end,
     })
@@ -646,6 +860,23 @@ If you wish your highlights to be saved in the document, just move it to a writa
                                     text = T(N_("1 highlight written into PDF file",
                                         "%1 highlights written into PDF file", count), count),
                                 })
+                                
+                                -- self:resetMetadatafile()
+                            end,
+                        })
+                    end,
+                },
+                {
+                    text = _("Import highlights from this pdf file"),
+                    enabled_func = function()
+                        return true
+                    end,
+                    callback = function()
+                        UIManager:show(ConfirmBox:new{
+                            text = _("It will delete all highlights that have not been saved to the PDF file. Are you sure you want to import highlights from the PDF file?"),
+                            icon = "texture-box",
+                            ok_callback = function()
+                                self:resetMetadatafile()
                             end,
                         })
                     end,
@@ -661,10 +892,12 @@ If you wish your highlights to be saved in the document, just move it to a writa
                             icon = "texture-box",
                             ok_callback = function()
                                 local count = 0
-                                for _, item in ipairs(self.ui.annotation.annotations) do
+                                for i = #self.ui.annotation.annotations, 1, -1 do
+                                    local item = self.ui.annotation.annotations[i]
                                     if item.drawer then
                                         count = count + 1
                                         self:writePdfAnnotation("delete", item)
+                                        self.ui.bookmark:removeItemByIndex(i) -- Xóa highlight khỏi danh sách
                                     end
                                 end
                                 UIManager:show(Notification:new{
@@ -1225,6 +1458,9 @@ function ReaderHighlight:showHighlightNoteOrDialog(index)
 end
 
 function ReaderHighlight:onShowHighlightDialog(index)
+    self:editHighlightColor(index)
+
+    --[[
     local item = self.ui.annotation.annotations[index]
     local buttons = {
         {
@@ -1344,6 +1580,7 @@ function ReaderHighlight:onShowHighlightDialog(index)
         end,
     }
     UIManager:show(self.edit_highlight_dialog)
+    ]]
     return true
 end
 
@@ -1919,6 +2156,14 @@ function ReaderHighlight:onHoldRelease()
             if default_highlight_action == "select" then
                 self:saveHighlight(true)
                 self:clear()
+            --elseif default_highlight_action == "translate" then
+            --    local PluginLoader = require("pluginloader")
+            --    local assistant = PluginLoader:load("assistant")
+            --    if assistant and assistant.showCustomPrompt then
+            --        assistant:showCustomPrompt(self.selected_text, "translate")
+            --    else
+            --        UIManager:showInfo(_("Assistant plugin not available"))
+            --    end
             else
                 self:onShowHighlightMenu()
             end
@@ -1942,14 +2187,38 @@ function ReaderHighlight:onHoldRelease()
             elseif default_highlight_action == "highlight" then
                 self:saveHighlight(true)
                 self:onClose()
+            elseif default_highlight_action == "ai_translate" then
+                --UIManager:show(Notification:new{text = _("ai_translate"), })
+                --local assistant_plugin = PluginLoader.enabled_plugins["assistant"]
+                local assistant_plugin = PluginLoader:getPluginInstance("assistant")
+                --for _, plugin in ipairs(PluginLoader.enabled_plugins) do
+                --    if plugin.name == "assistant" then
+                --        assistant_plugin = plugin
+                --        break
+                --    end
+                --end
+                local text_translate = util.stripPunctuation(util.cleanupSelectedText(self.selected_text.text))
+                if assistant_plugin and assistant_plugin.assistant_dialog.showCustomPrompt then
+                    NetworkMgr:runWhenOnline(function()
+                        Trapper:wrap(function()
+                        -- splitToWords result like this: { "The", " ", "good", " ", "news" }
+                        assistant_plugin.assistant_dialog:showCustomPrompt(text_translate, "translate")
+
+                        end)
+                    end)
+                    --assistant_plugin.assistant_dialog:showCustomPrompt("how are you", "translate")
+                else
+                   UIManager:show(Notification:new{text = _("AI Assistant plugin not available"), })
+                end
+                --self:onClose()
+            elseif default_highlight_action == "translate" then
+                self:translate()
             elseif default_highlight_action == "select" then
                 self:startSelection()
                 self:onClose()
             elseif default_highlight_action == "note" then
                 self:addNote()
                 self:onClose()
-            elseif default_highlight_action == "translate" then
-                self:translate()
             elseif default_highlight_action == "wikipedia" then
                 self:lookupWikipedia()
                 self:onClose()
@@ -2081,6 +2350,18 @@ function ReaderHighlight:saveHighlight(extend_to_sentence)
             item.pboxes = self.selected_text.pboxes
             item.ext = self.selected_text.ext
             self:writePdfAnnotation("save", item)
+            -- minhpt added begin
+            --if item.drawer then
+            --  self:writePdfAnnotation("delete", item)
+            --  self:writePdfAnnotation("save", item)
+            --  if item.note then
+            --      self:writePdfAnnotation("content", item, item.note)
+            --  end
+              --UIManager:show(Notification:new{text = _("Hello"),})
+            --else
+            --  self:writePdfAnnotation("save", item)
+            --end
+            -- minhpt added end
         end
         local index = self.ui.annotation:addItem(item)
         self.view.footer:maybeUpdateFooter()
@@ -2094,9 +2375,12 @@ function ReaderHighlight:writePdfAnnotation(action, item, content)
         return
     end
     logger.dbg("write to pdf document", action, item)
+    --UIManager:show(Notification:new{text = _("writePdfAnnotation."), })
     local function doAction(action_, page_, item_, content_)
         if action_ == "save" then
             self.document:saveHighlight(page_, item_)
+            --self.document:updateAnnotationAuthor(page_, item_, "highlight")
+            --UIManager:show(Notification:new{text = _("unit-teamX"), })
         elseif action_ == "delete" then
             self.document:deleteHighlight(page_, item_)
         elseif action_ == "content" then
@@ -2191,6 +2475,9 @@ function ReaderHighlight:editHighlightColor(index)
     local apply_color = function(color)
         self:writePdfAnnotation("delete", item)
         item.color = color
+        self.view.highlight.saved_color = color
+        G_reader_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
+        self.ui.doc_settings:saveSetting("highlight_color", self.view.highlight.saved_color)
         if self.ui.paging then
             self:writePdfAnnotation("save", item)
             if item.note then
@@ -2200,7 +2487,49 @@ function ReaderHighlight:editHighlightColor(index)
         UIManager:setDirty(self.dialog, "ui")
         self.ui:handleEvent(Event:new("AnnotationsModified", { item }))
     end
-    self:showHighlightColorDialog(apply_color, item)
+    --self:showHighlightColorDialog(apply_color, item)
+    
+    local default_color, curr_color, keep_shown_on_apply
+    if item then -- called from ReaderHighlight:editHighlightColor()
+        default_color = self.view.highlight.saved_color
+        curr_color = item.color or default_color
+        keep_shown_on_apply = true
+    else
+        default_color = G_reader_settings:readSetting("highlight_color") or self._fallback_color
+        curr_color = self.view.highlight.saved_color
+    end
+    local radio_buttons = {}
+    for _, v in ipairs(self.highlight_colors) do
+        table.insert(radio_buttons, {
+            {
+                text = v[1],
+                checked = curr_color == v[2],
+                bgcolor = BlitBuffer.colorFromName(v[2])
+                       or BlitBuffer.Color8(bit.bxor(0xFF * self.view.highlight.lighten_factor, 0xFF)),
+                provider = v[2],
+            },
+        })
+    end
+    self.edit_highlight_color_dialog = RadioButtonWidget:new{
+        title_text = _("Highlight color"),
+        width_factor = 0.5,
+        keep_shown_on_apply = keep_shown_on_apply,
+        radio_buttons = radio_buttons,
+        default_provider = default_color,
+        callback = function(radio)
+            apply_color(radio.provider)
+        end,
+        -- This ensures the waveform mode will be upgraded to a Kaleido wfm on compatible devices
+        colorful = true,
+        dithered = true,
+        extra_text = "\u{F48E}", -- trash can icon
+        extra_callback = function()
+                    self:deleteHighlight(index)
+                    UIManager:close(self.edit_highlight_color_dialog)
+                    self.edit_highlight_color_dialog = nil
+                end,
+    }
+    UIManager:show(self.edit_highlight_color_dialog)
 end
 
 function ReaderHighlight:showHighlightStyleDialog(caller_callback, item_drawer)

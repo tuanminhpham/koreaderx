@@ -112,13 +112,18 @@ common_info.version = {
         })
     end
 }
+
+local Screen = Device.screen
+
 common_info.about = {
     text = _("About"),
     keep_menu_open = true,
+    width = Screen:getWidth(),
     callback = function()
         UIManager:show(InfoMessage:new{
-            text = T(_("KOReader %1\n\nA document viewer for E Ink devices.\n\nLicensed under Affero GPL v3. All dependencies are free software.\n\nhttp://koreader.rocks"), BD.ltr(Version:getCurrentRevision())),
+            text = T(_("KOReaderX %1\n\nA document viewer for E Ink devices, based on KOReader.\n\nLicensed under Affero GPL v3. All dependencies are free software.\n\nhttps://sites.google.com/view/unit-teamx/"), BD.ltr(Version:getCurrentRevision())),
             icon = "koreader",
+            width = math.floor(Screen:getWidth()*0.9),
         })
     end
 }

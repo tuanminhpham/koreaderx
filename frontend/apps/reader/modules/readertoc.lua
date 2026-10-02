@@ -2,6 +2,7 @@ local BD = require("ui/bidi")
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
 local CenterContainer = require("ui/widget/container/centercontainer")
+local LeftContainer = require("ui/widget/container/leftcontainer")
 local ConfirmBox = require("ui/widget/confirmbox")
 local Device = require("device")
 local Event = require("ui/event")
@@ -837,14 +838,15 @@ function ReaderToc:onShowToc()
         ui = self.ui,
         is_borderless = true,
         is_popout = false,
-        width = Screen:getWidth(),
+        width = math.floor(2 * Screen:getWidth() / 3),
         height = Screen:getHeight(),
         single_line = true,
         align_baselines = true,
         with_dots = items_with_dots,
         items_per_page = items_per_page,
-        items_font_size = items_font_size,
-        items_padding = can_collapse and math.floor(Size.padding.fullscreen / 2) or nil, -- c.f., note above. Menu's default is twice that.
+        items_font_size = items_font_size - 4,
+        --items_padding = can_collapse and math.floor(Size.padding.fullscreen / 2) or nil, -- c.f., note above. Menu's default is twice that.
+        items_padding = Size.padding.tiny,
         line_color = Blitbuffer.COLOR_WHITE,
         on_close_ges = {
             GestureRange:new{
@@ -859,9 +861,18 @@ function ReaderToc:onShowToc()
         }
     }
 
-    local menu_container = CenterContainer:new{
-        dimen = Screen:getSize(),
-        covers_fullscreen = true, -- hint for UIManager:_repaint()
+    --local menu_container = CenterContainer:new{
+    --    dimen = Screen:getSize(),
+    --    covers_fullscreen = true, -- hint for UIManager:_repaint()
+    --    toc_menu,
+    --}
+    local menu_container = LeftContainer:new{
+        dimen = Geom:new{
+            x = 0, y = 0,
+            w = math.floor(Screen:getWidth() / 2),
+            h = Screen:getHeight(),
+        },
+        covers_fullscreen = true,
         toc_menu,
     }
 

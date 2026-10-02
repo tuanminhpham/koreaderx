@@ -23,6 +23,7 @@ function ReaderGoto:addToMainMenu(menu_items)
         text = _("Skim document"),
         callback = function()
             self:onShowSkimtoDialog()
+            --self.view:showSkimToWidget()
         end,
     }
 end
