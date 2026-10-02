@@ -225,6 +225,8 @@ end
 function DocSettings:open(doc_path)
     -- NOTE: Beware, our new instance is new, but self is still DocSettings!
     local new = DocSettings:extend{}
+    local pdf_transaction = util.getFileNameSuffix(doc_path):lower() == "pdf"
+        and require("document/pdfannotationtransaction") or nil
 
     new.sidecar_filename = DocSettings.getSidecarFilename(doc_path)
 
@@ -272,11 +274,12 @@ function DocSettings:open(doc_path)
     -- We get back an array of tables for *existing* candidates, sorted MRU first (insertion order breaks ties).
     local candidates = buildCandidates(candidates_list)
 
-    local candidate_path, ok, stored
+    local candidate_path, ok, stored, hash_ok, loaded_hash
     for _, t in ipairs(candidates) do
         candidate_path = t.path
         -- Ignore empty files
         if lfs.attributes(candidate_path, "size") > 0 then
+            if pdf_transaction then hash_ok, loaded_hash = pcall(pdf_transaction.hash, candidate_path) end
             ok, stored = pcall(dofile, candidate_path)
             -- Ignore empty tables
             if ok and next(stored) ~= nil then
@@ -295,6 +298,16 @@ function DocSettings:open(doc_path)
         new.data = {}
     end
     new.data.doc_path = doc_path
+    if pdf_transaction then
+        local observed, observation_err = pcall(function()
+            if new.source_candidate then assert(hash_ok ~= false, loaded_hash) end
+            pdf_transaction.observeMetadata(new, new.source_candidate, new.source_candidate and loaded_hash or nil)
+        end)
+        if not observed then
+            new.koreaderx_transaction_blocked = true
+            logger.warn("DocSettings: cannot establish PDF sidecar baseline; editing blocked:", observation_err)
+        end
+    end
 
     return new
 end
@@ -322,6 +335,11 @@ function DocSettings:flush(data, no_custom_metadata)
     if self.koreaderx_transaction_blocked then
         logger.warn("DocSettings: annotation recovery conflict; preserving on-disk metadata")
         return nil
+    end
+    local pdf_transaction = self.koreaderx_metadata_baseline and require("document/pdfannotationtransaction")
+    if pdf_transaction then
+        local unchanged, err = pcall(pdf_transaction.assertMetadataUnchanged, self)
+        if not unchanged then logger.warn("DocSettings: preserving external metadata:", err); return nil end
     end
     data = data or self.data
     local sidecar_dirs
@@ -371,6 +389,10 @@ function DocSettings:flush(data, no_custom_metadata)
             end
 
             self:purge(sidecar_file) -- remove old candidates and empty sidecar folders
+            if pdf_transaction then
+                self.source_candidate = sidecar_file
+                pdf_transaction.observeMetadata(self, sidecar_file)
+            end
 
             return sidecar_dir
         end

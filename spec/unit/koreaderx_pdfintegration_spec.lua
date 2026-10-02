@@ -430,6 +430,63 @@ describe("KOReaderX imported annotations with real MuPDF and ReaderUI", function
         assert.equals(metadata_hash, Transaction.hash(metadata_path))
         assert.has_error(function() Transaction.recover(filename) end)
     end)
+    it("rejects external sidecar edits made before a local or native annotation change", function()
+        doImport()
+        local index = importedIndex("first source")
+        local path = Transaction.metadataPath(reader.doc_settings)
+        local external = Transaction.readTable(path)
+        external.external = "sync tool update before editing"
+        Transaction.writeTable(path, external)
+        local before_pdf, before_sidecar = Transaction.hash(filename), Transaction.hash(path)
+        local before_items = Annotation.fingerprint(reader.annotation.annotations)
+        assert.is_false(reader.highlight:setHighlightColor(index, "cyan"))
+        reader.highlight.highlight_write_into_pdf = true
+        assert.is_false(reader.highlight:setHighlightColor(index, "purple"))
+        assert.is_true(reader.doc_settings.koreaderx_transaction_blocked)
+        assert.equals(before_items, Annotation.fingerprint(reader.annotation.annotations))
+        reader:onClose(); reader = nil
+        assert.equals(before_pdf, Transaction.hash(filename))
+        assert.equals(before_sidecar, Transaction.hash(path))
+    end)
+    it("does not recreate a sidecar removed externally while the book is open", function()
+        doImport()
+        local index = importedIndex("first source")
+        local path = Transaction.metadataPath(reader.doc_settings)
+        assert(os.remove(path))
+        assert.is_false(reader.highlight:setHighlightColor(index, "cyan"))
+        reader:onClose(); reader = nil
+        assert.equals("absent", Transaction.hash(path))
+    end)
+    it("does not create a hash sidecar directory merely to observe metadata on open", function()
+        reader:onClose(); reader = nil
+        G_reader_settings:saveSetting("document_metadata_folder", "hash")
+        DocSettings.setIsHashLocationEnabled(true)
+        -- Earlier rollback tests retain old hash directories. Use distinct PDF
+        -- bytes here, rather than assuming another document's hash is absent.
+        local unique = directory .. "/readonly-probe.pdf"
+        local native = require("ffi/mupdf").openDocument(filename)
+        local page = native:openPage(1)
+        page:createEmbeddedAnnotation{type = 8, color_n = 3, color_components = {1, 1, 0},
+            quads = {{10, 10, 30, 10, 10, 20, 30, 20}}, contents = "readonly " .. directory}
+        page:close(); native:writeDocument(unique); native:close()
+        local path = DocSettings:getSidecarDir(unique, "hash")
+        assert.is_nil(require("libs/libkoreader-lfs").attributes(path))
+        local settings = DocSettings:open(unique)
+        assert.is_nil(settings.koreaderx_transaction_blocked)
+        assert.is_nil(require("libs/libkoreader-lfs").attributes(path))
+    end)
+    it("refreshes sidecar baseline after ordinary flush and successive imported edits", function()
+        doImport()
+        reader.doc_settings:saveSetting("unrelated_reader_setting", "retained")
+        assert.truthy(reader.doc_settings:flush())
+        local index = importedIndex("first source")
+        assert.is_true(reader.highlight:setHighlightColor(index, "cyan"))
+        reader.highlight.highlight_write_into_pdf = true
+        assert.is_true(reader.highlight:setHighlightColor(index, "purple"))
+        assert.truthy(reader.doc_settings:flush())
+        assert.equals("retained", Transaction.readTable(Transaction.metadataPath(reader.doc_settings)).unrelated_reader_setting)
+        assert.is_nil(reader.doc_settings.koreaderx_transaction_blocked)
+    end)
     it("rejects disk edits made after the live handle was opened", function()
         doImport()
         local index = importedIndex("first source")

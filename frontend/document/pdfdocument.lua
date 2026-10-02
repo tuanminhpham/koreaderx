@@ -384,6 +384,7 @@ function PdfDocument:commitImportedAnnotation(settings, metadata, item, action)
     local Annotation = require("document/pdfannotations")
     assert(self:_checkIfWritable(), "PDF is read-only")
     assert(not self.koreaderx_transaction_blocked, "PDF transaction recovery is required")
+    Transaction.assertMetadataUnchanged(settings)
     Transaction.recover(self.file)
     self:validateImportedAnnotation(item)
     local id = Transaction.id()
@@ -520,6 +521,7 @@ function PdfDocument:commitImportedAnnotation(settings, metadata, item, action)
         settings:getCustomCoverFile(true)
         settings:getCustomMetadataFile(true)
         settings.data = metadata
+        Transaction.observeMetadata(settings, staged_metadata.path, staged_metadata.after)
     end)
     if candidate_open then pcall(candidate.close, candidate) end
     -- Once the disk PDF changed, the old handle must never autosave over it.
@@ -550,6 +552,7 @@ function PdfDocument:commitImportedAnnotation(settings, metadata, item, action)
             local disk = Transaction.readTable(Transaction.metadataPath(settings))
             if Annotation.fingerprint(disk) == Annotation.fingerprint(metadata) then
                 settings.data = metadata
+                Transaction.observeMetadata(settings, Transaction.metadataPath(settings))
                 ok = true
             end
         end

@@ -101,9 +101,9 @@ end
 
 -- Keep the active location; follow DocSettings' preferred location for a new
 -- sidecar. Never purge an alternate copy during a transaction.
-function Transaction.metadataPath(settings)
+function Transaction.metadataPath(settings, readonly)
     if settings.source_candidate then
-        return settings.source_candidate:gsub("%.old$", "")
+        return (settings.source_candidate:gsub("%.old$", ""))
     end
     local location = G_reader_settings:readSetting("document_metadata_folder", "doc")
     local directory
@@ -115,13 +115,37 @@ function Transaction.metadataPath(settings)
         directory = settings.doc_sidecar_dir
     end
     assert(directory and settings.sidecar_filename, "Missing document sidecar location")
-    util.makePath(directory)
-    assert(lfs.attributes(directory, "mode") == "directory", "Cannot create metadata directory")
+    if not readonly then
+        util.makePath(directory)
+        assert(lfs.attributes(directory, "mode") == "directory", "Cannot create metadata directory")
+    end
     return directory .. "/" .. settings.sidecar_filename
+end
+
+-- Keep the hash of the sidecar actually loaded, not merely the hash found at
+-- edit time. Otherwise a sync tool's earlier edit could be silently replaced.
+function Transaction.observeMetadata(settings, source, loaded_hash)
+    local target = Transaction.metadataPath(settings, true)
+    source = source or target
+    local current = Transaction.hash(source)
+    assert(not loaded_hash or current == loaded_hash, "Metadata changed while opening the book")
+    settings.koreaderx_metadata_baseline = { [source] = current }
+    if source ~= target then settings.koreaderx_metadata_baseline[target] = Transaction.hash(target) end
+end
+
+function Transaction.assertMetadataUnchanged(settings)
+    for path, expected in pairs(settings.koreaderx_metadata_baseline or {}) do
+        local ok, current = pcall(Transaction.hash, path)
+        if not ok or current ~= expected then
+            settings.koreaderx_transaction_blocked = true
+            error("Metadata changed outside KOReader. Preserve both versions and close/reopen the book before editing: " .. path)
+        end
+    end
 end
 
 function Transaction.stageMetadata(settings, data, id, destination)
     assert(not settings.koreaderx_transaction_blocked, "PDF transaction recovery is required before editing metadata")
+    Transaction.assertMetadataUnchanged(settings)
     local source = Transaction.metadataPath(settings)
     destination = destination or source
     local source_hash = Transaction.hash(source)
@@ -148,6 +172,7 @@ function Transaction.commitMetadata(settings, data)
     assert(Transaction.hash(staged.path) == staged.after, "Metadata commit verification failed")
     settings.source_candidate = staged.path
     settings.data = data
+    Transaction.observeMetadata(settings, staged.path, staged.after)
 end
 
 function Transaction.journalPath(pdf_path)

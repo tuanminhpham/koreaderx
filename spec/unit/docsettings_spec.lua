@@ -97,11 +97,16 @@ describe("docsettings module", function()
             d:saveSetting("a", i)
             d:flush()
             assert.False(os.rename(d.doc_sidecar_dir.."/"..d.sidecar_filename, v.."1") == nil)
+            -- Reopen after intentionally moving the active PDF sidecar. Reusing
+            -- the old instance would now correctly detect an external removal.
+            d = docsettings:open(file)
         end
 
-        d:close()
-        for _, v in ipairs(legacy_files) do
+        -- Restore only legacy candidates, with distinct times so this checks
+        -- newest-file selection independently of same-second primary priority.
+        for i, v in ipairs(legacy_files) do
             assert.False(os.rename(v.."1", v) == nil)
+            assert.True(lfs.touch(v, os.time() + i, os.time() + i))
         end
 
         d = docsettings:open(file)
