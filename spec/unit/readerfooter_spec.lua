@@ -78,6 +78,11 @@ describe("Readerfooter module", function()
         for k, v in pairs(ReaderFooter.default_settings) do
             settings[k] = v
         end
+        -- Keep these upstream regression cases on an explicit legacy profile.
+        -- KOReaderX defaults are covered separately, while saved values stay valid.
+        settings.highlight_navigation = false
+        settings.container_height = 14
+        settings.reclaim_height = false
         -- Enforce Battery, the real default is dynamic (Device:hasBattery())
         settings.battery = true
         G_reader_settings:saveSetting("footer", settings)

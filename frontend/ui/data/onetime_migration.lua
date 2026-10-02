@@ -11,6 +11,12 @@ local SQ3 = require("lua-ljsqlite3/init")
 local util = require("util")
 local _ = require("gettext")
 
+-- Run before upstream fills default footer fields or exits for an up-to-date
+-- profile: otherwise a new HN default could be mistaken for fork provenance.
+local migrated, migration_error = require("ui/data/koreaderx_footer_migration").migrate(
+    G_reader_settings, require("device"))
+assert(migrated, migration_error)
+
 -- Date at which the last migration snippet was added
 local CURRENT_MIGRATION_DATE = 20260623
 

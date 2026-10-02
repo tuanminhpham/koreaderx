@@ -55,6 +55,7 @@ local MODE = {
     page_turning_inverted = 19, -- includes both page-turn-button and swipe-and-tap inversion
     dynamic_filler = 20,
     additional_content = 21,
+    highlight_navigation = 22,
 }
 
 local symbol_prefix = {
@@ -82,6 +83,7 @@ local symbol_prefix = {
         wifi_status = C_("FooterLetterPrefix", "W:"),
         -- @translators This is the footer letter prefix for page turning status.
         page_turning_inverted = C_("FooterLetterPrefix", "Pg:"),
+        highlight_navigation = C_("FooterLetterPrefix", "HN:"),
     },
     icons = {
         time = "⌚",
@@ -99,6 +101,7 @@ local symbol_prefix = {
         wifi_status_off = "",
         page_turning_inverted = "⇄",
         page_turning_regular = "⇉",
+        highlight_navigation = C_("FooterLetterPrefix", "HN:"),
     },
     compact_items = {
         time = nil,
@@ -117,6 +120,7 @@ local symbol_prefix = {
         wifi_status_off = "",
         page_turning_inverted = "⇄",
         page_turning_regular = "⇉",
+        highlight_navigation = C_("FooterCompactItemsPrefix", "HN"),
     }
 }
 if BD.mirroredUILayout() then
@@ -142,6 +146,10 @@ end
 local footerTextGeneratorMap
 footerTextGeneratorMap = {
     empty = function() return "" end,
+    highlight_navigation = function(footer)
+        local prefix = symbol_prefix[footer.settings.item_prefix].highlight_navigation
+        return prefix .. " " .. (G_reader_settings:isTrue("highlight_navigation_enable_tap") and _("On") or _("Off"))
+    end,
     frontlight = function(footer)
         local symbol_type = footer.settings.item_prefix
         local prefix = symbol_prefix[symbol_type].frontlight
@@ -499,7 +507,7 @@ ReaderFooter.default_settings = {
     chapter_progress_bar = false, -- the whole book
     disabled = false,
     all_at_once = false,
-    reclaim_height = false,
+    reclaim_height = true,
     toc_markers = true,
     page_progress = true,
     pages_left_book = false,
@@ -547,10 +555,17 @@ ReaderFooter.default_settings = {
     pages_left_includes_current_page = false,
     initial_marker = false,
     invert_progress_direction = false,
+    highlight_navigation = true,
 }
 
 function ReaderFooter:init()
-    self.settings = G_reader_settings:readSetting("footer", self.default_settings)
+    local migrated, migration_error = require("ui/data/koreaderx_footer_migration").migrate(G_reader_settings, Device)
+    assert(migrated, migration_error)
+    self.settings = G_reader_settings:readSetting("footer", util.tableDeepCopy(self.default_settings))
+    -- Add new target fields without changing choices already saved by the user.
+    for key, value in pairs(self.default_settings) do
+        if self.settings[key] == nil then self.settings[key] = value end
+    end
 
     self.additional_footer_content = {} -- array, where additional header content can be inserted.
 
@@ -1065,6 +1080,7 @@ function ReaderFooter:textOptionTitles(option)
         wifi_status = T(_("Wi-Fi status (%1)"), symbol_prefix[symbol].wifi_status),
         page_turning_inverted = T(_("Page turning inverted (%1)"), symbol_prefix[symbol].page_turning_inverted),
         book_author = _("Book author"),
+        highlight_navigation = _("Highlight navigation"),
         book_title = _("Book title"),
         book_chapter = _("Chapter title"),
         custom_text = T(_("Custom text (long-press to edit): \'%1\'%2"), self.custom_text,
@@ -1473,6 +1489,7 @@ function ReaderFooter:addToMainMenu(menu_items)
     table.insert(footer_items, getMinibarOption("book_title"))
     table.insert(footer_items, getMinibarOption("book_chapter"))
     table.insert(footer_items, getMinibarOption("custom_text"))
+    table.insert(footer_items, getMinibarOption("highlight_navigation"))
     table.insert(footer_items, getMinibarOption("dynamic_filler"))
     table.insert(footer_items, getMinibarOption("additional_content"))
 
@@ -2704,6 +2721,10 @@ function ReaderFooter:onSetPageHorizMargins(h_margins)
 end
 
 function ReaderFooter:onTimeFormatChanged()
+    self:refreshFooter(true, true)
+end
+
+function ReaderFooter:onHighlightNavigationChanged()
     self:refreshFooter(true, true)
 end
 
