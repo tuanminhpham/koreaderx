@@ -9,6 +9,11 @@ describe("ReaderLink module", function()
         Event = require("ui/event")
         ReaderUI = require("apps/reader/readerui")
         Screen = require("device").screen
+        -- These click coordinates/page counts describe an existing upstream
+        -- profile, independent of KOReaderX defaults for a fresh profile.
+        local footer = require("util").tableDeepCopy(require("apps/reader/modules/readerfooter").default_settings)
+        footer.container_height, footer.reclaim_height, footer.highlight_navigation = 14, false, false
+        G_reader_settings:saveSetting("footer", footer)
         sample_epub = "spec/front/unit/data/leaves.epub"
         sample_pdf = "spec/front/unit/data/paper.pdf"
     end)

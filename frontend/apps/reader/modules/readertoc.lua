@@ -1,7 +1,7 @@
 local BD = require("ui/bidi")
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
-local CenterContainer = require("ui/widget/container/centercontainer")
+local LeftContainer = require("ui/widget/container/leftcontainer")
 local ConfirmBox = require("ui/widget/confirmbox")
 local Device = require("device")
 local Event = require("ui/event")
@@ -809,7 +809,7 @@ function ReaderToc:onShowToc()
     end
 
     local items_per_page = G_reader_settings:readSetting("toc_items_per_page") or self.toc_items_per_page_default
-    local items_font_size = G_reader_settings:readSetting("toc_items_font_size") or Menu.getItemFontSize(items_per_page)
+    local items_font_size = math.max(10, (G_reader_settings:readSetting("toc_items_font_size") or Menu.getItemFontSize(items_per_page)) - 4)
     local items_show_chapter_length = G_reader_settings:isTrue("toc_items_show_chapter_length")
     local items_with_dots = G_reader_settings:nilOrTrue("toc_items_with_dots")
 
@@ -929,7 +929,10 @@ function ReaderToc:onShowToc()
     --       because we inflate the state Button's width on the left, mainly to give it a larger tap zone.
     --       This yields *slightly* better alignment between state & mandatory (in terms of effective margins).
     local button_size = self.expand_button:getSize()
+    local panel_width = math.floor(Screen:getWidth() * 2 / 3)
     local toc_menu = Menu:new{
+        width = panel_width,
+        height = Screen:getHeight(),
         title = self:getTitle(),
         subtitle = self.search_string and T(_("Query: %1"), self.search_string) or "",
         state_w = can_collapse and button_size.w or 0,
@@ -941,7 +944,7 @@ function ReaderToc:onShowToc()
         with_dots = items_with_dots,
         items_per_page = items_per_page,
         items_font_size = items_font_size,
-        items_padding = can_collapse and math.floor(Size.padding.fullscreen / 2) or nil, -- c.f., note above. Menu's default is twice that.
+        items_padding = Size.padding.tiny,
         line_color = Blitbuffer.COLOR_WHITE,
         title_bar_fm_style = true,
         title_bar_left_icon = "appbar.menu",
@@ -961,9 +964,10 @@ function ReaderToc:onShowToc()
         }
     }
 
-    local menu_container = CenterContainer:new{
-        dimen = Screen:getSize(),
-        covers_fullscreen = true, -- hint for UIManager:_repaint()
+    local menu_container = LeftContainer:new{
+        dimen = Geom:new{ x = 0, y = 0, w = panel_width, h = Screen:getHeight() },
+        allow_mirroring = false,
+        covers_fullscreen = false,
         toc_menu,
     }
 

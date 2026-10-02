@@ -12,6 +12,11 @@ describe("Readerrolling module", function()
         ReaderUI = require("apps/reader/readerui")
         Event = require("ui/event")
         Screen = require("device").screen
+        -- These click coordinates/page counts describe an existing upstream
+        -- profile, independent of KOReaderX defaults for a fresh profile.
+        local footer = require("util").tableDeepCopy(require("apps/reader/modules/readerfooter").default_settings)
+        footer.container_height, footer.reclaim_height, footer.highlight_navigation = 14, false, false
+        G_reader_settings:saveSetting("footer", footer)
 
         local sample_epub = "spec/front/unit/data/juliet.epub"
         readerui = ReaderUI:new{

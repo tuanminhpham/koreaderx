@@ -10,6 +10,12 @@ describe("Readertoc module", function()
         Screen = require("device").screen
         DEBUG = require("dbg")
 
+        -- The numeric page fixtures were recorded with the upstream footer.
+        -- Preserve that explicit saved profile when testing TOC page calculations.
+        local footer = require("util").tableDeepCopy(require("apps/reader/modules/readerfooter").default_settings)
+        footer.container_height, footer.reclaim_height, footer.highlight_navigation = 14, false, false
+        G_reader_settings:saveSetting("footer", footer)
+
         local sample_epub = "spec/front/unit/data/juliet.epub"
         -- Clear settings from previous tests
         local DocSettings = require("docsettings")

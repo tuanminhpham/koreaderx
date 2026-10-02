@@ -59,6 +59,7 @@ local Size = {
         default = Screen:scaleBySize(2),
         window = Screen:scaleBySize(7),
         button = Screen:scaleBySize(7),
+        round = Screen:scaleBySize(10),
     },
     line = {
         thin = Screen:scaleBySize(0.5),
