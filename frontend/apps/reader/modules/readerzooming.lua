@@ -63,7 +63,7 @@ local ReaderZooming = InputContainer:extend{
     },
     -- default to nil so we can trigger ZoomModeUpdate events on start up
     zoom_mode = nil,
-    DEFAULT_ZOOM_MODE = "pagewidth",
+    DEFAULT_ZOOM_MODE = "page",
     -- for pan mode: fit to width/zoom_factor,
     -- with overlap of zoom_overlap_h % (horizontally)
     -- and zoom_overlap_v % (vertically).
@@ -230,7 +230,7 @@ function ReaderZooming:onReadSettings(config)
         -- Otherwise, build it from the split genus & type settings
         local zoom_mode_genus = config:readSetting("kopt_zoom_mode_genus")
                              or G_reader_settings:readSetting("kopt_zoom_mode_genus")
-                             or 3 -- autocrop is default then pagewidth will be the default as well
+                             or 4 -- whole page; explicit per-book and global choices take precedence
         local zoom_mode_type = config:readSetting("kopt_zoom_mode_type")
                             or G_reader_settings:readSetting("kopt_zoom_mode_type")
         zoom_mode = self:combo_to_mode(zoom_mode_genus, zoom_mode_type)

@@ -6,6 +6,7 @@ local Event = require("ui/event")
 local FocusManager = require("ui/widget/focusmanager")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom = require("ui/geometry")
+local OverlayGeometry = require("ui/readeroverlaygeometry")
 local GestureRange = require("ui/gesturerange")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
@@ -24,9 +25,6 @@ local Screen = Device.screen
 local SkimToWidget = FocusManager:extend{}
 
 function SkimToWidget:init()
-    if self.ui.paging then -- "page" view
-        self.ui.paging:enterSkimMode()
-    end
 
     local screen_width = Screen:getWidth()
     local screen_height = Screen:getHeight()
@@ -48,9 +46,16 @@ function SkimToWidget:init()
     end
 
     -- nil for default center full mode; "top" and "bottom" for compact mode
-    local skim_dialog_position = G_reader_settings:readSetting("skim_dialog_position")
-    local full_mode = not skim_dialog_position
+    local skim_dialog_position = G_reader_settings:readSetting("skim_dialog_position", "bottom")
+    local full_mode = skim_dialog_position == "center"
     self.compact_mode = not full_mode
+    -- A persistent compact toolbar must not change or temporarily restore the
+    -- reader's zoom, reflow or scroll choice (the full skim dialog still does).
+    if full_mode and self.ui.paging then self.ui.paging:enterSkimMode() end
+    local available = OverlayGeometry.available(self.ui)
+    self._layout_width, self._layout_height = screen_width, screen_height
+    self._layout_available = available.h
+    self._layout_scale = Screen:scaleBySize(22)
 
     local frame_border_size = Size.border.window
     local button_span_unit_width = Size.span.horizontal_small
@@ -71,7 +76,7 @@ function SkimToWidget:init()
         button_span_unit_width = Screen:scaleBySize(2)
         -- Thirteen controls in a column. Fit the actual content to short screens.
         button_height = math.min(Screen:scaleBySize(22), math.floor(
-            (screen_height - 2 * (frame_padding + frame_border_size) - 12 * button_span_unit_width) / 13))
+            (available.h - 2 * (frame_padding + frame_border_size) - 12 * button_span_unit_width) / 13) - 2 * Size.border.button)
         button_height = math.max(1, button_height)
         inner_width = button_height
         nb_buttons = 1
@@ -351,11 +356,9 @@ function SkimToWidget:init()
                 self:update()
             end)
         local button_toc = compactButton("☰", function()
-            UIManager:close(self)
             self.ui.toc:onShowToc()
         end)
         local button_menu = compactButton("⋮", function()
-            UIManager:close(self)
             self.ui:handleEvent(Event:new("ShowMenu"))
         end)
         compact_buttons = {
@@ -374,6 +377,14 @@ function SkimToWidget:init()
     end
 
     -- Free controls retained for callbacks/update but absent from the visible tree.
+    if compact_buttons then
+        -- Button.height is its content height, not its complete frame/hitbox.
+        for _, button in ipairs(compact_buttons) do
+            button:free()
+            button.padding, button.padding_h, button.padding_v = 0, 0, 0
+            button:init()
+        end
+    end
     self.detached_buttons = full_mode and { button_orig_page }
         or { button_minus_ten, button_plus_ten, self.current_page_text }
 
@@ -392,16 +403,17 @@ function SkimToWidget:init()
             bottom_buttons_row,
         }
     }
-    self.movable = MovableContainer:new{
-        self.skimto_frame,
-    }
+    -- Compact mode is anchored, not draggable: its painted frame and every
+    -- button hitbox must stay out of the status bar.
+    self.movable = full_mode and MovableContainer:new{ self.skimto_frame }
+        or WidgetContainer:new{ self.skimto_frame }
     local frame_size = self.skimto_frame:getSize()
     self[1] = WidgetContainer:new{
         align = full_mode and "center" or nil,
         dimen = full_mode and Geom:new{ x = 0, y = 0, w = screen_width, h = screen_height }
             or Geom:new{
                 x = math.max(0, screen_width - frame_size.w),
-                y = skim_dialog_position == "top" and 0 or math.max(0, screen_height - frame_size.h),
+                y = math.max(0, available.h - frame_size.h),
                 w = frame_size.w, h = frame_size.h,
             },
         self.movable,
@@ -470,7 +482,10 @@ function SkimToWidget:addOriginToLocationStack()
 end
 
 function SkimToWidget:onCloseWidget()
-    if self.ui.paging then
+    if self.ui.gotopage and self.ui.gotopage.skimto == self then
+        self.ui.gotopage.skimto = nil
+    end
+    if not self.compact_mode and self.ui.paging then
         self.ui.paging:exitSkimMode()
     end
     UIManager:setDirty(nil, function()
@@ -521,6 +536,26 @@ end
 -- A child MovableContainer can consume a hold-pan when the pointer crosses it.
 -- Keep an active page selection's continuation ahead of child event dispatch.
 function SkimToWidget:handleEvent(event)
+    if self.compact_mode and event.handler == "onGesture" then
+        local ges = event.args[1]
+        if self._reader_hold and ges and (ges.ges == "hold_pan" or ges.ges == "hold_release") then
+            self.ui:handleEvent(event)
+            if ges.ges == "hold_release" then self._reader_hold = nil end
+            return true
+        end
+        if ges and ges.pos and self.skimto_frame.dimen then
+            -- Route a sequence that starts on the page to ReaderUI exactly once.
+            -- ReaderUI owns footer touch zones and highlight selection lifecycle.
+            if ges.ges == "hold" then
+                self._reader_hold = not ges.pos:intersectWith(self.skimto_frame.dimen)
+            end
+            if self._reader_hold or not ges.pos:intersectWith(self.skimto_frame.dimen) then
+                self.ui:handleEvent(event)
+                if ges.ges == "hold_release" then self._reader_hold = nil end
+                return true
+            end
+        end
+    end
     if self._highlight_hold_active and event.handler == "onGesture" then
         local ges = event.args[1]
         if ges and ges.ges == "hold_pan" then
@@ -570,8 +605,24 @@ function SkimToWidget:onHoldRelease(arg, ges_ev)
 end
 
 function SkimToWidget:onClose()
+    if self.compact_mode then self.ui.doc_settings:saveSetting("skim_toolbar_enabled", false) end
     UIManager:close(self)
     return true
+end
+
+function SkimToWidget:paintTo(bb, x, y)
+    if self.compact_mode then
+        local available = OverlayGeometry.available(self.ui)
+        if self._layout_width ~= Screen:getWidth() or self._layout_height ~= Screen:getHeight()
+                or self._layout_available ~= available.h or self._layout_scale ~= Screen:scaleBySize(22) then
+            self.progress_bar:free()
+            for _, button in ipairs(self.detached_buttons) do button:free() end
+            self:free()
+            self[1], self.dimen = nil, nil
+            self:init()
+        end
+    end
+    FocusManager.paintTo(self, bb, x, y)
 end
 
 return SkimToWidget

@@ -1,7 +1,6 @@
 local BD = require("ui/bidi")
 local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
-local LeftContainer = require("ui/widget/container/leftcontainer")
 local ConfirmBox = require("ui/widget/confirmbox")
 local Device = require("device")
 local Event = require("ui/event")
@@ -95,6 +94,10 @@ function ReaderToc:cleanUpTocTitle(title, replace_empty)
     return title
 end
 
+function ReaderToc:onCloseDocument()
+    if self.toc_panel then self.toc_panel.dismiss() end
+end
+
 function ReaderToc:onSetDimensions(dimen)
     self.dimen = dimen
 end
@@ -148,6 +151,12 @@ function ReaderToc:onPageUpdate(pageno)
     end
 
     self.pageno = pageno
+    if self.toc_panel then
+        self:updateCurrentNode()
+        -- Keep menu.page and expanded nodes; update just the current-entry mark.
+        self.toc_menu:updateItems()
+        UIManager:setDirty(self.ui, "partial")
+    end
 end
 
 function ReaderToc:onPosUpdate(pos, pageno)
@@ -804,6 +813,7 @@ function ReaderToc:expandParentNode(index)
 end
 
 function ReaderToc:onShowToc()
+    if self.toc_panel then return true end
     if self.view:shouldInvertBiDiLayoutMirroring() then
         BD.invert()
     end
@@ -929,10 +939,18 @@ function ReaderToc:onShowToc()
     --       because we inflate the state Button's width on the left, mainly to give it a larger tap zone.
     --       This yields *slightly* better alignment between state & mandatory (in terms of effective margins).
     local button_size = self.expand_button:getSize()
-    local panel_width = math.floor(Screen:getWidth() * 2 / 3)
+    local area = require("ui/readeroverlaygeometry").available(self.ui)
+    local panel_width = math.floor(area.w * 2 / 3)
     local toc_menu = Menu:new{
         width = panel_width,
-        height = Screen:getHeight(),
+        height = area.h,
+        custom_title_bar = require("ui/widget/titlebar"):new{
+            width = panel_width, fullscreen = true, align = "center",
+            title = self:getTitle(),
+            subtitle = self.search_string and T(_("Query: %1"), self.search_string) or "",
+            left_icon = "appbar.menu",
+            left_icon_tap_callback = function() self:showTocDialog() end,
+        },
         title = self:getTitle(),
         subtitle = self.search_string and T(_("Query: %1"), self.search_string) or "",
         state_w = can_collapse and button_size.w or 0,
@@ -964,7 +982,8 @@ function ReaderToc:onShowToc()
         }
     }
 
-    local menu_container = LeftContainer:new{
+    local menu_container = require("ui/widget/readertocpanel"):new{
+        ui = self.ui, owner = self,
         dimen = Geom:new{ x = 0, y = 0, w = panel_width, h = Screen:getHeight() },
         allow_mirroring = false,
         covers_fullscreen = false,
@@ -985,7 +1004,6 @@ function ReaderToc:onShowToc()
         if do_toggle_state then
             item.state.callback(item.index)
         else
-            toc_menu:close_callback()
             self.ui.link:addCurrentLocationToStack()
             if item.xpointer then
                 self.ui:handleEvent(Event:new("GotoXPointer", item.xpointer, item.xpointer))
@@ -1018,6 +1036,13 @@ function ReaderToc:onShowToc()
         BD.resetInvert()
     end
 
+    menu_container.dismiss = toc_menu.close_callback
+    -- Only outside taps dismiss this reader panel. Menu defaults (Back, swipe,
+    -- title close) still apply to every other Menu in the application.
+    toc_menu.onClose = function() return true end
+    toc_menu.onCloseAllMenus = function() return true end
+    toc_menu.onScreenResize = function() return false end
+    self.toc_panel = menu_container
     toc_menu.show_parent = menu_container
 
     self.toc_menu = toc_menu

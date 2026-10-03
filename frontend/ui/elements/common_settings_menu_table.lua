@@ -518,12 +518,12 @@ local skim_dialog_position_string = {
 }
 common_settings.skim_dialog_position = {
     text_func = function()
-        local position = G_reader_settings:readSetting("skim_dialog_position") or "center"
+        local position = G_reader_settings:readSetting("skim_dialog_position") or "bottom"
         return T(_"Skim dialog position: %1", skim_dialog_position_string[position]:lower())
     end,
     sub_item_table = {
         genGenericMenuEntry(skim_dialog_position_string["top"],    "skim_dialog_position", "top"),
-        genGenericMenuEntry(skim_dialog_position_string["center"], "skim_dialog_position", nil), -- default
+        genGenericMenuEntry(skim_dialog_position_string["center"], "skim_dialog_position", "center"),
         genGenericMenuEntry(skim_dialog_position_string["bottom"], "skim_dialog_position", "bottom"),
     },
 }

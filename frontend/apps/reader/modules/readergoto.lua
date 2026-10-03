@@ -13,6 +13,17 @@ local ReaderGoto = WidgetContainer:extend{}
 
 function ReaderGoto:init()
     self.ui.menu:registerToMainMenu(self)
+    self.ui:registerPostReaderReadyCallback(function()
+        -- Defer until ReaderUI is on the stack and the footer has its final layout.
+        self._show_toolbar = function()
+            if not self._closed and self.ui.paging
+                    and self.ui.doc_settings:readSetting("skim_toolbar_enabled",
+                        G_reader_settings:nilOrTrue("skim_toolbar_enabled")) then
+                self:onShowSkimtoDialog()
+            end
+        end
+        UIManager:nextTick(self._show_toolbar)
+    end)
 end
 
 function ReaderGoto:addToMainMenu(menu_items)
@@ -25,6 +36,7 @@ function ReaderGoto:addToMainMenu(menu_items)
     menu_items.skim_to = {
         text = _("Skim document"),
         callback = function()
+            self.ui.doc_settings:saveSetting("skim_toolbar_enabled", true)
             self:onShowSkimtoDialog()
         end,
     }
@@ -122,6 +134,7 @@ x for an absolute page number
 end
 
 function ReaderGoto:onShowSkimtoDialog()
+    if self._closed or self.skimto then return true end
     self.skimto = SkimToWidget:new{
         ui = self.ui,
         callback_switch_to_goto = function()
@@ -130,6 +143,21 @@ function ReaderGoto:onShowSkimtoDialog()
         end,
     }
     UIManager:show(self.skimto)
+    return true
+end
+
+function ReaderGoto:onPageUpdate()
+    if self.skimto then
+        self.skimto.curr_page = self.ui:getCurrentPage()
+        self.skimto:update()
+    end
+end
+ReaderGoto.onPosUpdate = ReaderGoto.onPageUpdate
+
+function ReaderGoto:onCloseDocument()
+    self._closed = true
+    if self._show_toolbar then UIManager:unschedule(self._show_toolbar) end
+    if self.skimto then UIManager:close(self.skimto) end
 end
 
 function ReaderGoto:close()
