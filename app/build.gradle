@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+// Opt-in companion package for device acceptance tests; existing installs remain separate.
+def isolatedTestBuild = project.findProperty('isolatedTest') == 'true'
+
 android {
     namespace 'org.koreader.launcher'
     ndkVersion '23.2.8568313'
@@ -51,7 +54,12 @@ android {
         }
 
         debug {
-            applicationIdSuffix ".debug"
+            applicationIdSuffix isolatedTestBuild ? ".koreaderxtest" : ".debug"
+            if (isolatedTestBuild) {
+                manifestPlaceholders.APP_NAME = "KOReaderX Test"
+                buildConfigField "boolean", "IN_APP_UPDATES", "false"
+                buildConfigField "String", "APP_NAME", '"KOReaderX Test"'
+            }
             minifyEnabled false
             debuggable true
         }

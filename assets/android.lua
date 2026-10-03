@@ -1644,6 +1644,25 @@ local function run(android_app_state)
         end)
     end
 
+    android.getPackageName = function()
+        return JNI:context(android.app.activity.vm, function(jni)
+            return jni:to_string(jni:callObjectMethod(
+                android.app.activity.clazz, "getPackageName", "()Ljava/lang/String;"))
+        end)
+    end
+
+    -- A private directory outside filesDir: extracting an updated bundle deletes filesDir.
+    android.getTestDataPath = function()
+        return JNI:context(android.app.activity.vm, function(jni)
+            local name = jni.env[0].NewStringUTF(jni.env, "koreaderx-test")
+            local dir = jni:callObjectMethod(android.app.activity.clazz, "getDir",
+                "(Ljava/lang/String;I)Ljava/io/File;", name, 0)
+            jni.env[0].DeleteLocalRef(jni.env, name)
+            return jni:to_string(jni:callObjectMethod(dir,
+                "getAbsolutePath", "()Ljava/lang/String;"))
+        end)
+    end
+
     android.getExternalStoragePath = function()
         return JNI:context(android.app.activity.vm, function(jni)
             local external_path = jni:callObjectMethod(

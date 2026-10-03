@@ -94,7 +94,13 @@ class MainApp : Application() {
         super.onCreate()
         assets_path = filesDir.absolutePath
         storage_path = Environment.getExternalStorageDirectory().absolutePath
-        app_storage_path = String.format("%s%s%s", storage_path, File.separator, NAME.lowercase())
+        // Keep the test package away from the shared production profile, including logs.
+        // getDir is outside filesDir, which Assets.bootstrap replaces on every bundle update.
+        app_storage_path = if (BuildConfig.DEBUG && packageName == "org.koreader.launcher.koreaderxtest") {
+            getDir("koreaderx-test", Context.MODE_PRIVATE).absolutePath
+        } else {
+            String.format("%s%s%s", storage_path, File.separator, NAME.lowercase())
+        }
         crash_report_path = String.format("%s%s%s", cacheDir, File.separator, "crash.log")
         targetSdk = applicationContext.applicationInfo.targetSdkVersion
 
