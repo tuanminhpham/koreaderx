@@ -680,9 +680,7 @@ If you wish your highlights to be saved in the document, just move it to a writa
                                             local index = self.ui.annotation:getItemIndex(item)
                                             if not self:commitImportedChange(index, util.tableDeepCopy(item), "all") then break end
                                         else
-                                            self:writePdfAnnotation("delete", item)
-                                            self:writePdfAnnotation("save", item)
-                                            if item.note then self:writePdfAnnotation("content", item, item.note) end
+                                            if self:writePdfAnnotation("replace", item, nil, util.tableDeepCopy(item)) == false then break end
                                         end
                                         count = count + 1
                                     end
@@ -1043,8 +1041,7 @@ end
 function ReaderHighlight:updateHighlight(index, side, direction, move_by_char)
     if not self:checkAnnotationEditingAllowed() then return false end
     if move_by_char and self.ui.paging then return end
-    local highlight = self.ui.annotation.annotations[index]
-    if highlight.koreaderx_pdf_source then highlight = util.tableDeepCopy(highlight) end
+    local highlight = util.tableDeepCopy(self.ui.annotation.annotations[index])
     local highlight_before = util.tableDeepCopy(highlight)
     local is_updated
     if self.ui.rolling then
@@ -1064,10 +1061,7 @@ function ReaderHighlight:updateHighlight(index, side, direction, move_by_char)
             end
             return committed, updated_index
         end
-        self:writePdfAnnotation("delete", highlight_before)
-        self:writePdfAnnotation("save", highlight)
-        self.ui:handleEvent(Event:new("AnnotationsModified", { highlight, highlight_before }))
-        UIManager:setDirty(self.dialog, "ui")
+        return self:commitOrdinaryChange(index, highlight, highlight_before)
     end
 end
 
@@ -2225,7 +2219,7 @@ function ReaderHighlight:onHoldRelease()
     if self.select_mode then -- extended highlighting, ending fragment
         if self.selected_text then
             self.select_mode = false
-            self:extendSelection()
+            if self:extendSelection() == false then return true end
             if self.selected_text.is_extended then
                 self:saveHighlight(true)
                 self:clear()
@@ -2396,11 +2390,9 @@ function ReaderHighlight:applyCurrentHighlightStyleAndColor()
                 candidate.drawer, candidate.color = self.view.highlight.saved_drawer, self.view.highlight.saved_color
                 if not self:commitImportedChange(index, candidate, "appearance") then break end
             else
-                self:writePdfAnnotation("delete", item)
-                item.drawer, item.color = self.view.highlight.saved_drawer, self.view.highlight.saved_color
-                self:writePdfAnnotation("save", item)
-                if item.note then self:writePdfAnnotation("content", item, item.note) end
-                self.ui:handleEvent(Event:new("AnnotationsModified", { item }))
+                local candidate = util.tableDeepCopy(item)
+                candidate.drawer, candidate.color = self.view.highlight.saved_drawer, self.view.highlight.saved_color
+                if not self:commitOrdinaryChange(index, candidate) then break end
             end
             count = count + 1
         end
@@ -2409,6 +2401,10 @@ function ReaderHighlight:applyCurrentHighlightStyleAndColor()
 end
 
 function ReaderHighlight:checkAnnotationEditingAllowed()
+    if self.document.is_pdf and not self.ui.doc_settings.koreaderx_transaction_blocked then
+        local ok, err = pcall(require("document/pdfannotationtransaction").assertMetadataUnchanged, self.ui.doc_settings)
+        if not ok then logger.warn("KOReaderX annotation metadata conflict:", err) end
+    end
     if not self.ui.doc_settings.koreaderx_transaction_blocked then return true end
     UIManager:show(InfoMessage:new{ text = _("Annotation editing is disabled until the unfinished PDF transaction has been recovered. Close the book and preserve its PDF, sidecar and transaction backups.") })
     return false
@@ -2416,6 +2412,14 @@ end
 
 function ReaderHighlight:saveHighlight(extend_to_sentence)
     if not self:checkAnnotationEditingAllowed() then return false end
+    if self.selected_text and self.selected_text._koreaderx_owned_extend_index then
+        local candidate = util.tableDeepCopy(self.selected_text)
+        local index = candidate._koreaderx_owned_extend_index
+        candidate._koreaderx_owned_extend_index, candidate.is_extended, candidate.is_tmp = nil, nil, nil
+        local ok, updated_index = self:commitOrdinaryChange(index, candidate)
+        if ok then return updated_index end
+        return
+    end
     if self.selected_text and self.selected_text._koreaderx_extend_index then
         local candidate = util.tableDeepCopy(self.selected_text)
         local index = candidate._koreaderx_extend_index
@@ -2455,7 +2459,8 @@ function ReaderHighlight:saveHighlight(extend_to_sentence)
         if self.ui.paging then
             item.pboxes = self.selected_text.pboxes
             item.ext = self.selected_text.ext
-            self:writePdfAnnotation("save", item)
+            if self.document.is_pdf then item.koreaderx_pdf_owned = { version = 1, parts = {} } end
+            if self:writePdfAnnotation("save", item) == false then return false end
         end
         local index = self.ui.annotation:addItem(item)
         self.view.footer:maybeUpdateFooter()
@@ -2465,7 +2470,9 @@ function ReaderHighlight:saveHighlight(extend_to_sentence)
     end
 end
 
-function ReaderHighlight:writePdfAnnotation(action, item, content)
+-- Preserve pending native ownership independently from imported annotations.
+-- A complete raw snapshot plus object identity is required for ordinary edits.
+function ReaderHighlight:writePdfAnnotation(action, item, content, previous)
     if not self:checkAnnotationEditingAllowed() then return false end
     if item.koreaderx_pdf_source then
         if action == "content" then
@@ -2475,34 +2482,106 @@ function ReaderHighlight:writePdfAnnotation(action, item, content)
             candidate.note = content ~= "" and content or nil
             return self:commitImportedChange(index, candidate, "note")
         end
-        -- Generic delete/recreate must never mutate an imported original.
-        -- Imported callers use commitImportedChange with a complete candidate.
         return false
     end
-    if not (self.document.is_pdf and self.highlight_write_into_pdf and item.drawer) then
-        return
-    end
-    logger.dbg("write to pdf document", action, item)
-    local function doAction(action_, page_, item_, content_)
-        if action_ == "save" then
-            self.document:saveHighlight(page_, item_)
-        elseif action_ == "delete" then
-            self.document:deleteHighlight(page_, item_)
-        elseif action_ == "content" then
-            self.document:updateHighlightContents(page_, item_, content_)
+    if not (self.document.is_pdf and self.highlight_write_into_pdf and item.drawer) then return true end
+    local original = previous or item
+    local prior = util.tableDeepCopy(original.koreaderx_pdf_owned or { version = 1, parts = {} })
+    local parts, adjusted = {}, {}
+    local function fragment(source, page_number, native_only)
+        local part = not native_only and source.ext and self:getSavedExtendedHighlightPage(source, page_number) or util.tableDeepCopy(source)
+        part.koreaderx_pdf_owned = { version = 1, parts = {} }
+        for _, native in ipairs(source.koreaderx_pdf_owned and source.koreaderx_pdf_owned.parts or {}) do
+            if native.page == page_number then table.insert(part.koreaderx_pdf_owned.parts, native) end
         end
+        return part
     end
-    if item.pos0.page == item.pos1.page then -- single-page highlight
-        doAction(action, item.pos0.page, item, content)
-    else -- multi-page highlight
-        for hl_page = item.pos0.page, item.pos1.page do
-            local hl_part = self:getSavedExtendedHighlightPage(item, hl_page)
-            doAction(action, hl_page, hl_part, content)
-            if action == "save" then -- update pboxes from quadpoints
-                item.ext[hl_page].pboxes = hl_part.pboxes
+    local ok, err = pcall(function()
+        self.document:checkPdfFileUnchanged()
+        if action ~= "save" then self.document:validateOwnedAnnotation(original) end
+        self.document:withOwnedAnnotationCandidate(function()
+            if action == "delete" or action == "replace" then
+                for _, native in ipairs(prior.parts) do
+                    assert(self.document:deleteHighlight(native.page, fragment(original, native.page, true)) ~= false,
+                        "Owned PDF annotation could not be deleted")
+                end
             end
+            if action == "save" or action == "replace" then
+                for page = item.pos0.page, item.pos1.page do
+                    local target = fragment(item, page)
+                    local created = assert(self.document:saveHighlight(page, target))
+                    if item.note then
+                        target.koreaderx_pdf_owned.parts = { created }
+                        created = assert(self.document:updateHighlightContents(page, target, item.note))
+                    end
+                    parts[#parts + 1] = created
+                    adjusted[page] = target.pboxes
+                end
+            elseif action == "content" then
+                for _, native in ipairs(prior.parts) do
+                    local target = fragment(original, native.page, true)
+                    local changed = self.document:updateHighlightContents(native.page, target, content)
+                    assert(type(changed) == "table", "Owned PDF annotation note could not be updated")
+                    parts[#parts + 1] = changed
+                end
+            end
+        end)
+    end)
+    if not ok then
+        logger.warn("KOReaderX owned annotation change failed:", err)
+        UIManager:show(InfoMessage:new{ text = _("The PDF annotation change was not applied. Its ownership may be missing or changed; close/reopen and reconcile before retrying.") .. "\n" .. tostring(err) })
+        return false
+    end
+    for page, boxes in pairs(adjusted) do
+        if item.ext then item.ext[page].pboxes = boxes else item.pboxes = boxes end
+    end
+    item.koreaderx_pdf_owned = {
+        version = 1, parts = parts,
+        pending = prior.pending or { before_hash = self.document.koreaderx_open_hash, parts = prior.parts },
+    }
+    return true
+end
+
+function ReaderHighlight:commitOrdinaryChange(index, candidate, before)
+    local live = self.ui.annotation.annotations[index]
+    if candidate == live then candidate = util.tableDeepCopy(candidate) end
+    local original = util.tableDeepCopy(before or live)
+    if self:writePdfAnnotation("replace", candidate, nil, original) == false then return false end
+    -- Keep ordinary item identity for open palettes, bookmark dialogs and EPUB
+    -- callbacks, but only publish the detached candidate after native success.
+    for key in pairs(live) do live[key] = nil end
+    for key, value in pairs(candidate) do live[key] = value end
+    candidate = live
+    local updated_index = index
+    if candidate.page ~= original.page and self.ui.paging then
+        candidate.chapter = self.ui.toc:getTocTitleByPage(candidate.page)
+        table.remove(self.ui.annotation.annotations, index)
+        updated_index = self.ui.annotation:addItem(candidate)
+    else
+        self.ui.annotation.annotations[index] = candidate
+    end
+    if self.document.is_pdf then self.document:setImportedAnnotations(self.ui.annotation.annotations) end
+    self.ui:handleEvent(Event:new("AnnotationsModified", { candidate, original }))
+    UIManager:setDirty(self.dialog, "ui")
+    return true, updated_index
+end
+
+function ReaderHighlight:ownedDeletionState(item)
+    local owned = item.koreaderx_pdf_owned
+    if not owned then return end
+    assert(type(owned) == "table" and owned.version == 1 and type(owned.parts) == "table", "Invalid owned PDF provenance")
+    local state = util.tableDeepCopy(self.ui.doc_settings:readSetting("koreaderx_pdf_import", { version = 1, tombstones = {} }))
+    assert(type(state) == "table" and (not state.version or state.version == 1), "Unsupported PDF import metadata schema")
+    state.version, state.tombstones = 1, state.tombstones or {}
+    assert(type(state.tombstones) == "table", "Invalid PDF tombstone data")
+    for _, parts in ipairs({ owned.parts, owned.pending and owned.pending.parts or {} }) do
+        for _, part in ipairs(parts) do
+            local tombstone = util.tableDeepCopy(part)
+            tombstone.koreaderx_owned = true -- never relocate ownership to a coincident foreign source
+            table.insert(state.tombstones, tombstone)
         end
     end
+    return state
 end
 
 function ReaderHighlight:lookupWikipedia()
@@ -2547,9 +2626,16 @@ function ReaderHighlight:deleteHighlight(index)
     local item = self.ui.annotation.annotations[index]
     if not item then return false end
     if item.koreaderx_pdf_source then return self:commitImportedChange(index, nil, "delete") end
-    self:writePdfAnnotation("delete", item)
+    local ok, state = pcall(self.ownedDeletionState, self, item)
+    if not ok then
+        UIManager:show(InfoMessage:new{ text = tostring(state) })
+        return false
+    end
+    if self:writePdfAnnotation("delete", item) == false then return false end
+    if state then self.ui.doc_settings:saveSetting("koreaderx_pdf_import", state) end
     self.ui.bookmark:removeItemByIndex(index)
     UIManager:setDirty(self.dialog, "ui")
+    return true
 end
 
 function ReaderHighlight:addNote(text)
@@ -2590,16 +2676,9 @@ function ReaderHighlight:editHighlightStyle(index)
                 if ok then refresh(index) end
                 return ok
             end
-            self:writePdfAnnotation("delete", item)
-            item.drawer = value
-            if self.ui.paging then
-                self:writePdfAnnotation("save", item)
-                if item.note then
-                    self:writePdfAnnotation("content", item, item.note)
-                end
-            end
-            UIManager:setDirty(self.dialog, "ui")
-            self.ui:handleEvent(Event:new("AnnotationsModified", { item }))
+            local candidate = util.tableDeepCopy(item)
+            candidate.drawer = value
+            if self:commitOrdinaryChange(index, candidate) then refresh(index) end
         end,
         anchor = function()
             return self:_getDialogAnchor(style_selector, resolve())
@@ -2699,6 +2778,7 @@ function ReaderHighlight:startSelection(index)
         UIManager:setDirty(self.dialog, "ui", self.view.flipping:getRefreshRegion())
     else -- new highlight
         index = self:saveHighlight()
+        if not index then return false end
         self.ui.annotation.annotations[index].is_tmp = true
     end
     self.highlight_idx = index
@@ -2757,16 +2837,20 @@ function ReaderHighlight:extendSelection()
         -- true to draw
         new_text = self.ui.document:getTextFromXPointers(new_pos0, new_pos1, true)
     end
-    if item1.koreaderx_pdf_source then
+    if item1.koreaderx_pdf_source or item1.koreaderx_pdf_owned then
         self.selected_text = util.tableDeepCopy(item1)
-        self.selected_text._koreaderx_extend_index = self.highlight_idx
+        if item1.koreaderx_pdf_source then self.selected_text._koreaderx_extend_index = self.highlight_idx
+        else
+            self.selected_text._koreaderx_owned_extend_index = self.highlight_idx
+            self.selected_text.is_extended = not item1.is_tmp
+        end
         self.selected_text.pos0, self.selected_text.pos1 = new_pos0, new_pos1
         self.selected_text.page = new_pos0.page
         self.selected_text.text, self.selected_text.pboxes, self.selected_text.ext = new_text, new_pboxes, ext
         UIManager:setDirty(self.dialog, "ui")
         return
     end
-    self:deleteHighlight(self.highlight_idx) -- starting fragment
+    if self:deleteHighlight(self.highlight_idx) == false then return false end -- starting fragment
     self.selected_text = {
         is_extended = not item1.is_tmp,
         datetime = item1.datetime,
@@ -2963,12 +3047,9 @@ function ReaderHighlight:setHighlightColor(index, value)
         candidate.color = value
         if not self:commitImportedChange(index, candidate, "color") then return false end
     else
-        self:writePdfAnnotation("delete", item)
-        item.color = value
-        self:writePdfAnnotation("save", item)
-        if item.note then self:writePdfAnnotation("content", item, item.note) end
-        self.ui:handleEvent(Event:new("AnnotationsModified", { item }))
-        UIManager:setDirty(self.dialog, "ui")
+        local candidate = util.tableDeepCopy(item)
+        candidate.color = value
+        if not self:commitOrdinaryChange(index, candidate) then return false end
     end
     self:setDefaultHighlightColor(value)
     return true
@@ -3178,6 +3259,8 @@ end
 
 function ReaderHighlight:onPdfAnnotationsReady()
     if not (self.document.supportsEmbeddedAnnotations and self.document:supportsEmbeddedAnnotations()) then return end
+    self.document.koreaderx_owned_settings = self.ui.doc_settings
+    self.document:reconcileOwnedProvenance(self.ui.annotation.annotations)
     self.document:setImportedAnnotations(self.ui.annotation.annotations)
     if self.document.configurable.text_wrap ~= 0 then return end
     local mtime = require("libs/libkoreader-lfs").attributes(self.document.file, "modification")

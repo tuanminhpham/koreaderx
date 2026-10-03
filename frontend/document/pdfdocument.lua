@@ -260,42 +260,171 @@ function PdfDocument:saveHighlight(pageno, item)
     end
     -- NOTE: For highlights, display style may differ compared to ReaderView:drawHighlightRect...
     --       (e.g., we do a MUL blend, MuPDF currently appears to do an OVER blend).
-    page:addMarkupAnnotation(quadpoints, n, annot_type, annot_color) -- may update/adjust quadpoints
+    local entry = page:addMarkupAnnotation(quadpoints, n, annot_type, annot_color) -- may update/adjust quadpoints
     -- Update pboxes with the possibly adjusted coordinates (this will have it updated
     -- in self.view.highlight.saved[page])
     item.pboxes = _quadpointsToPboxes(quadpoints, n)
     page:close()
     self:resetTileCacheValidity()
+    return require("document/pdfannotations").part(pageno, entry)
+end
+
+-- Ordinary highlights retain write-on-close semantics. A failed multi-page
+-- operation discards its native candidate, including any partial native writes.
+function PdfDocument:withOwnedAnnotationCandidate(callback)
+    self:checkPdfFileUnchanged()
+    assert(self:_checkIfWritable() == true, "PDF is read-only")
+    local Transaction = require("document/pdfannotationtransaction")
+    local snapshot = self.file .. ".koreaderx-owned-" .. Transaction.id() .. ".snapshot"
+    local previous, edited = self._document, self.is_edited
+    local candidate
+    local ok, result = pcall(function()
+        previous:saveSnapshot(snapshot)
+        candidate = pdf.openDocument(snapshot)
+        if candidate:needsPassword() then
+            assert(self.koreaderx_password and candidate:authenticatePassword(self.koreaderx_password), "Cannot unlock candidate PDF")
+        end
+        candidate:setColorRendering(previous.color)
+        candidate.annotation_render_filter = previous.annotation_render_filter
+        self._document = candidate
+        return callback()
+    end)
+    if not ok then
+        self._document, self.is_edited = previous, edited
+        if candidate then pcall(candidate.close, candidate) end
+        os.remove(snapshot)
+        error(result)
+    end
+    -- MuPDF close only drops the old context; the complete candidate is live.
+    local closed, close_error = pcall(previous.close, previous)
+    if not closed then logger.warn("Could not release previous owned PDF context:", close_error) end
+    for _, path in ipairs(self.koreaderx_owned_snapshots or {}) do os.remove(path) end
+    self.koreaderx_owned_snapshots = { snapshot }
+    self.is_edited = true
+    self:resetTileCacheValidity()
+    return result
+end
+
+-- Exact identities remain mandatory for ordinary ownership. Invalid or stale
+-- provenance never prevents opening a book, but cannot authorize native edits.
+local function validate_owned_parts(document, parts)
+    assert(type(parts) == "table", "Invalid owned PDF parts")
+    local seen = {}
+    for _, part in ipairs(parts) do
+        assert(type(part) == "table" and type(part.page) == "number" and part.page >= 1
+            and part.page % 1 == 0 and type(part.num) == "number" and type(part.gen) == "number"
+            and type(part.raw) == "table" and not seen[part.page], "Invalid owned PDF source")
+        seen[part.page] = true
+        local page = document:openPage(part.page)
+        local ok, pointer, entry = pcall(page.resolveEmbeddedAnnotation, page, part, true)
+        page:close()
+        assert(ok and pointer, entry or "Owned PDF annotation changed externally")
+    end
+end
+
+-- Recover provenance after a settings flush preceding ordinary native close.
+-- A matching original hash proves that pending native changes were discarded.
+function PdfDocument:reconcileOwnedProvenance(annotations)
+    local Transaction = require("document/pdfannotationtransaction")
+    local hash = Transaction.hash(self.file)
+    local receipt_ok, receipt = pcall(Transaction.readTable, self.file .. ".koreaderx-owned-publication.lua")
+    local function exact(parts)
+        return #parts > 0 and pcall(validate_owned_parts, self._document, parts)
+    end
+    for _, item in ipairs(annotations) do
+        local owned = item.koreaderx_pdf_owned
+        if type(owned) == "table" and owned.version == 1 and type(owned.parts) == "table"
+            and type(owned.pending) == "table" and type(owned.pending.parts) == "table" then
+            if hash == owned.pending.before_hash then
+                owned.parts, owned.pending = owned.pending.parts, nil
+            elseif receipt_ok and receipt.version == 1 and receipt.after == hash
+                and receipt.before == owned.pending.before_hash
+                and pcall(validate_owned_parts, self._document, owned.parts) then
+                owned.pending = nil -- also proves a published deletion with no remaining owned parts
+            elseif exact(owned.parts) then
+                owned.pending = nil
+            elseif exact(owned.pending.parts) then
+                owned.parts, owned.pending = owned.pending.parts, nil
+            else
+                owned.pending.unresolved = true
+            end
+        end
+    end
+end
+
+-- A PDF publication persists pending ordinary edits too. Verify their exact
+-- identities in that staged PDF before publishing cleared pending metadata.
+local function settle_owned_provenance(document, annotations)
+    for _, item in ipairs(annotations or {}) do
+        local owned = item.koreaderx_pdf_owned
+        if type(owned) == "table" and owned.version == 1 and type(owned.parts) == "table" then
+            assert(not owned.pending or (type(owned.pending) == "table" and not owned.pending.unresolved),
+                "Cannot publish unresolved owned PDF provenance")
+            validate_owned_parts(document, owned.parts)
+            owned.pending = nil
+        end
+    end
+end
+
+-- Preflight every owned page before a caller starts a multi-page mutation.
+-- Unknown legacy matches are conflicts; they are never adopted by geometry.
+function PdfDocument:validateOwnedAnnotation(item)
+    self:checkPdfFileUnchanged()
+    local owned = item.koreaderx_pdf_owned
+    if owned then
+        assert(type(owned) == "table" and owned.version == 1 and type(owned.parts) == "table", "Invalid owned PDF provenance")
+        assert(not owned.pending or (type(owned.pending) == "table" and not owned.pending.unresolved),
+            "Unresolved pending owned PDF provenance; preserve PDF and sidecar for reconciliation")
+        validate_owned_parts(self._document, owned.parts)
+    else
+        local Annotation = require("document/pdfannotations")
+        for number, entries in pairs(self:getEmbeddedAnnotations() or {}) do
+            for _, entry in ipairs(entries) do
+                assert(not Annotation.legacyGeometryMatches(item, number, entry),
+                    "Legacy highlight ownership is unknown; reconcile the coincident PDF annotation before writing")
+            end
+        end
+    end
+end
+
+local function owned_part(item, pageno)
+    for _, part in ipairs(item.koreaderx_pdf_owned and item.koreaderx_pdf_owned.parts or {}) do
+        if part.page == pageno then return part end
+    end
 end
 
 function PdfDocument:deleteHighlight(pageno, item)
     local can_write = self:_checkIfWritable()
     if can_write ~= true then return can_write end
-
-    self.is_edited = true
-    local quadpoints, n = _quadpointsFromPboxes(item.pboxes)
+    self:validateOwnedAnnotation(item)
+    local part = owned_part(item, pageno)
+    if not part then return true end -- known local-only, or no legacy match
     local page = self._document:openPage(pageno)
-    local annot = page:getMarkupAnnotation(quadpoints, n)
-    if annot ~= nil then
-        page:deleteAnnotation(annot)
-        self:resetTileCacheValidity()
-    end
+    local ok, err = pcall(page.deleteEmbeddedAnnotation, page, part, true)
     page:close()
+    assert(ok, err)
+    self.is_edited = true
+    self:resetTileCacheValidity()
+    return true
 end
 
 function PdfDocument:updateHighlightContents(pageno, item, contents)
     local can_write = self:_checkIfWritable()
     if can_write ~= true then return can_write end
-
-    self.is_edited = true
-    local quadpoints, n = _quadpointsFromPboxes(item.pboxes)
+    self:validateOwnedAnnotation(item)
+    local part = owned_part(item, pageno)
+    if not part then return true end
     local page = self._document:openPage(pageno)
-    local annot = page:getMarkupAnnotation(quadpoints, n)
-    if annot ~= nil then
-        page:updateMarkupAnnotation(annot, contents)
-        self:resetTileCacheValidity()
-    end
+    local ok, entry = pcall(function()
+        local annot, reason = page:resolveEmbeddedAnnotation(part, true)
+        assert(annot, reason)
+        return page:updateMarkupAnnotation(annot, contents)
+    end)
     page:close()
+    assert(ok, entry)
+    self.is_edited = true
+    self:resetTileCacheValidity()
+    return require("document/pdfannotations").part(pageno, entry)
 end
 
 function PdfDocument:supportsEmbeddedAnnotations()
@@ -328,6 +457,7 @@ end
 -- never serialized as a pointer or by changing flags on PDF objects.
 function PdfDocument:setImportedAnnotations(annotations)
     local Annotation = require("document/pdfannotations")
+    self.koreaderx_owned_annotations = annotations
     self._document.annotation_render_filter = {}
     self.koreaderx_render_revision = {}
     local page_data = {}
@@ -489,6 +619,7 @@ function PdfDocument:commitImportedAnnotation(settings, metadata, item, action)
                 end)
             end
         end
+        settle_owned_provenance(candidate, metadata.annotations)
         candidate:close()
         candidate_open = false
         local destination, new_hash_directory
@@ -562,10 +693,67 @@ end
 
 function PdfDocument:writeDocument()
     assert(not self.koreaderx_transaction_blocked, "PDF transaction recovery is required before saving")
-    logger.info("writing document to", self.file)
+    local Transaction = require("document/pdfannotationtransaction")
+    local ffiUtil = require("ffi/util")
+    if self.koreaderx_owned_settings then
+        assert(not self.koreaderx_owned_settings.koreaderx_transaction_blocked, "Metadata conflict requires recovery before saving PDF")
+        Transaction.assertMetadataUnchanged(self.koreaderx_owned_settings)
+    end
     self:checkPdfFileUnchanged()
-    self._document:writeDocument(self.file)
-    self.koreaderx_open_hash = require("document/pdfannotationtransaction").hash(self.file)
+    local before = Transaction.hash(self.file)
+    local id = Transaction.id()
+    local staged = self.file .. ".koreaderx-owned-" .. id .. ".new"
+    local backup = self.file .. ".koreaderx-owned-" .. id .. ".backup"
+    local candidate
+    -- Snapshot preserves existing compressed streams and xrefs. Never send a
+    -- full rewrite from a candidate handle to the user's live PDF path.
+    local ok, err = pcall(function()
+        self._document:saveSnapshot(staged)
+        candidate = pdf.openDocument(staged)
+        if candidate:needsPassword() then
+            assert(self.koreaderx_password and candidate:authenticatePassword(self.koreaderx_password), "Cannot unlock staged PDF")
+        end
+        settle_owned_provenance(candidate, util.tableDeepCopy(self.koreaderx_owned_annotations or {}))
+        candidate:close(); candidate = nil
+        Transaction.syncFile(staged)
+        local after = Transaction.hash(staged)
+        Transaction.copy(self.file, backup)
+        assert(Transaction.hash(backup) == before, "PDF changed while making backup")
+        self:checkPdfFileUnchanged()
+        local receipt = self.file .. ".koreaderx-owned-publication.lua"
+        Transaction.writeTable(receipt .. ".new", { version = 1, before = before, after = after,
+            staged = staged, backup = backup })
+        assert(os.rename(receipt .. ".new", receipt))
+        assert(ffiUtil.fsyncDirectory(receipt))
+        self:checkPdfFileUnchanged()
+        if self.koreaderx_owned_settings then Transaction.assertMetadataUnchanged(self.koreaderx_owned_settings) end
+        assert(os.rename(staged, self.file))
+        assert(ffiUtil.fsyncDirectory(self.file))
+        assert(Transaction.hash(self.file) == after, "PDF publication verification failed")
+        self.koreaderx_open_hash = after
+        settle_owned_provenance(self._document, self.koreaderx_owned_annotations)
+        self.is_edited = false
+        DocSettings.invalidateDocumentHash(self.file)
+    end)
+    if candidate then pcall(candidate.close, candidate) end
+    -- A failure retains staging, backup and live pending metadata for recovery.
+    -- If publication happened, forbid an old handle from autosaving over it.
+    if not ok and Transaction.hash(self.file) ~= before then
+        self.is_edited = false
+        self.koreaderx_transaction_blocked = true
+    end
+    assert(ok, err)
+end
+
+function PdfDocument:discardChange()
+    for _, item in ipairs(self.koreaderx_owned_annotations or {}) do
+        local owned = item.koreaderx_pdf_owned
+        if type(owned) == "table" and owned.version == 1 and type(owned.pending) == "table"
+            and not owned.pending.unresolved and type(owned.pending.parts) == "table" then
+            owned.parts, owned.pending = owned.pending.parts, nil
+        end
+    end
+    Document.discardChange(self)
 end
 
 function PdfDocument:close()
@@ -580,6 +768,10 @@ function PdfDocument:close()
     end
 
     Document.close(self)
+    if not self._document then
+        for _, path in ipairs(self.koreaderx_owned_snapshots or {}) do os.remove(path) end
+        self.koreaderx_owned_snapshots = nil
+    end
 end
 
 function PdfDocument:getLinkFromPosition(pageno, pos)

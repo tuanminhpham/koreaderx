@@ -490,11 +490,8 @@ end
 function ReaderBookmark:deleteItemNote(item)
     if not self.ui.highlight:checkAnnotationEditingAllowed() then return false end
     local index = self:getBookmarkItemIndex(item)
-    if self.ui.annotation.annotations[index].koreaderx_pdf_source then
-        if not self.ui.highlight:writePdfAnnotation("content", self.ui.annotation.annotations[index], "") then return false end
-    else
-        self.ui.annotation.annotations[index].note = nil
-    end
+    if self.ui.highlight:writePdfAnnotation("content", self.ui.annotation.annotations[index], "") == false then return false end
+    self.ui.annotation.annotations[index].note = nil
     self.ui:handleEvent(Event:new("AnnotationsModified", { item, nb_highlights_added = 1, nb_notes_added = -1 }))
 end
 
@@ -1464,7 +1461,7 @@ function ReaderBookmark:setBookmarkNote(item_or_index, is_new_note, new_note, ca
                         UIManager:close(input_dialog, "flashui")
                         if is_new_note then -- "Add note" called from highlight dialog and cancelled, remove saved highlight
                             local current = resolve()
-                            if current then self:removeItemByIndex(current) end
+                            if current then self.ui.highlight:deleteHighlight(current) end
                         end
                     end,
                 },

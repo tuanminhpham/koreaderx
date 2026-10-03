@@ -54,12 +54,31 @@ function PdfAnnotations.validBoxes(boxes)
     return true
 end
 
+-- Geometry can identify an unresolved legacy collision, never ownership.
+-- Fresh local-only highlights carry an explicit empty owned-parts list.
+function PdfAnnotations.legacyGeometryMatches(item, page, annotation)
+    if not item.drawer or item.koreaderx_pdf_source or item.koreaderx_pdf_owned then return false end
+    local boxes
+    if item.ext then boxes = item.ext[page] and item.ext[page].pboxes
+    elseif (item.pos0 and item.pos0.page or item.page) == page then boxes = item.pboxes end
+    if not PdfAnnotations.validBoxes(boxes) or not annotation.raw then return false end
+    local quads = PdfAnnotations.quads(boxes)
+    local other = annotation.raw.quads
+    if not other or #quads ~= #other then return false end
+    for i, quad in ipairs(quads) do
+        for j, value in ipairs(quad) do
+            if not other[i][j] or math.abs(value - other[i][j]) > 0.0001 then return false end
+        end
+    end
+    return true
+end
+
 -- Match the complete source snapshot, including multiplicity for direct objects.
 -- Geometry alone is deliberately insufficient: two authors may annotate the same word.
 function PdfAnnotations.import(annotations, existing, tombstones, build_item)
     local candidate = util.tableDeepCopy(existing)
     local seen, anonymous, old_identity = {}, {}, {}
-    local snapshots, input_ids, input_counts = {}, {}, {}
+    local snapshots, input_ids, input_counts, missing_owned_snapshots = {}, {}, {}, {}
     for page, entries in pairs(annotations or {}) do
         for _, entry in ipairs(entries) do
             if entry.source and entry.raw then
@@ -69,7 +88,7 @@ function PdfAnnotations.import(annotations, existing, tombstones, build_item)
             end
         end
     end
-    local function remember(part)
+    local function remember(part, owned)
         local raw = PdfAnnotations.fingerprint(part.raw)
         local key = part.page .. ":" .. part.num .. ":" .. part.gen .. ":" .. raw
         if part.num == 0 then
@@ -78,16 +97,29 @@ function PdfAnnotations.import(annotations, existing, tombstones, build_item)
             seen[key] = true
             old_identity[part.page .. ":" .. part.num .. ":" .. part.gen] = raw
             local snapshot = part.page .. ":" .. raw
-            snapshots[snapshot] = snapshots[snapshot] or {}
-            table.insert(snapshots[snapshot], part)
+            if owned then
+                if not input_ids[part.page .. ":" .. part.num .. ":" .. part.gen] then missing_owned_snapshots[snapshot] = true end
+            else
+                snapshots[snapshot] = snapshots[snapshot] or {}
+                table.insert(snapshots[snapshot], part)
+            end
         end
     end
     for _, item in ipairs(candidate) do
         if item.koreaderx_pdf_source then
             for _, part in ipairs(item.koreaderx_pdf_source.parts) do remember(part) end
         end
+        local owned = item.koreaderx_pdf_owned
+        if owned then
+            assert(owned.version == 1 and type(owned.parts) == "table", "Invalid owned PDF provenance")
+            for _, part in ipairs(owned.parts) do remember(part, true) end
+            -- A manual settings flush may precede ordinary write-on-close.
+            if owned.pending then
+                for _, part in ipairs(owned.pending.parts) do remember(part, true) end
+            end
+        end
     end
-    for _, part in ipairs(tombstones or {}) do remember(part) end
+    for _, part in ipairs(tombstones or {}) do remember(part, part.koreaderx_owned) end
     local added, skipped, invalid, conflicts = {}, 0, 0, 0
     local pages = {}
     for page in pairs(annotations or {}) do pages[#pages + 1] = page end
@@ -101,6 +133,13 @@ function PdfAnnotations.import(annotations, existing, tombstones, build_item)
                 local raw = PdfAnnotations.fingerprint(part.raw)
                 local id = page .. ":" .. part.num .. ":" .. part.gen
                 local key = id .. ":" .. raw
+                local legacy_conflict = false
+                for _, item in ipairs(candidate) do
+                    if PdfAnnotations.legacyGeometryMatches(item, page, annotation) then
+                        legacy_conflict = true
+                        break
+                    end
+                end
                 if seen[key] or (anonymous[key] or 0) > 0 then
                     skipped = skipped + 1
                     if part.num == 0 then anonymous[key] = anonymous[key] - 1 end
@@ -121,6 +160,10 @@ function PdfAnnotations.import(annotations, existing, tombstones, build_item)
                     end
                 elseif part.num > 0 and old_identity[id] and old_identity[id] ~= raw then
                     -- Preserve local text/note/overrides; ask for reconciliation, never overwrite.
+                    conflicts = conflicts + 1
+                elseif legacy_conflict or missing_owned_snapshots[page .. ":" .. raw] then
+                    -- Unknown legacy provenance is not proof that this is ours.
+                    -- Report a conflict instead of duplicating or dropping a source.
                     conflicts = conflicts + 1
                 else
                     local item = build_item(page, annotation)
