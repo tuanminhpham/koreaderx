@@ -8,6 +8,36 @@ local lfs = require("libs/libkoreader-lfs")
 
 local DataStorage = {}
 
+-- The package identity comes from Android's Context, not KO_HOME or a profile setting.
+local isolated_test_profile = isAndroid and android.getPackageName
+    and android.getPackageName() == "org.koreader.launcher.koreaderxtest" and android.isDebuggable()
+
+function DataStorage:isIsolatedTestProfile()
+    return isolated_test_profile == true
+end
+
+function DataStorage:getTestBooksDir()
+    if isolated_test_profile then
+        -- Dedicated S10 fixture directory; other books already in Books/test stay outside the gate.
+        return android.getExternalStoragePath() .. "/Books/test/KOReaderX_S10_ZWSqRJ0v"
+    end
+end
+
+-- Canonical paths prevent a copied lastfile or a symlink from opening production books.
+function DataStorage:isTestPathAllowed(path)
+    if not isolated_test_profile then return true end
+    local ffiutil = require("ffi/util")
+    local real = ffiutil.realpath(path)
+    if not real then return false end
+    for _, root in ipairs({ self:getDataDir(), self:getTestBooksDir() }) do
+        local real_root = ffiutil.realpath(root)
+        if real_root and (real == real_root or real:sub(1, #real_root + 1) == real_root .. "/") then
+            return true
+        end
+    end
+    return false
+end
+
 local data_dir
 local full_data_dir
 
@@ -16,7 +46,11 @@ local full_data_dir
 function DataStorage:getDataDir()
     if data_dir then return data_dir end
 
-    if os.getenv("KO_HOME") then
+    if isolated_test_profile then
+        assert(android.getTestDataPath, "Isolated test package requires the matching launcher")
+        data_dir = android.getTestDataPath()
+        android.LOGI("KOReaderX isolated test profile: " .. data_dir)
+    elseif os.getenv("KO_HOME") then
         data_dir = os.getenv("KO_HOME")
     elseif isAndroid then
         data_dir = android.getExternalStoragePath() .. "/koreader"

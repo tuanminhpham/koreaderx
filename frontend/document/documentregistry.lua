@@ -2,6 +2,7 @@
 This is a registry for document providers
 ]]--
 
+local DataStorage = require("datastorage")
 local DocSettings = require("docsettings")
 local logger = require("logger")
 local util = require("util")
@@ -227,6 +228,10 @@ end
 
 --- Returns a new Document instance on success
 function DocumentRegistry:openDocument(file, provider)
+    if not DataStorage:isTestPathAllowed(file) then
+        logger.warn("Isolated test profile refuses a document outside Books/test:", file)
+        return nil
+    end
     -- force a GC, so that any previous document used memory can be reused
     -- immediately by this new document without having to wait for the
     -- next regular gc. The second call may help reclaming more memory.

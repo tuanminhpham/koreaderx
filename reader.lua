@@ -39,6 +39,10 @@ local DataStorage = require("datastorage")
 G_reader_settings = require("luasettings"):open(
     DataStorage:getDataDir().."/settings.reader.lua")
 
+if DataStorage:isIsolatedTestProfile() then
+    require("androidtestprofile").prepare(G_reader_settings, DataStorage)
+end
+
 local device_id = G_reader_settings:readSetting("device_id")
 if device_id == nil or device_id == "" then
     local random = require("random")

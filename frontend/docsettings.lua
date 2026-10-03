@@ -103,6 +103,7 @@ local function buildCandidates(list)
 end
 
 local function getOrderedLocationCandidates()
+    if DataStorage:isIsolatedTestProfile() then return { "dir" } end
     local preferred_location = G_reader_settings:readSetting("document_metadata_folder", "doc")
     if preferred_location == "hash" then
         return { "hash", "doc", "dir" }
@@ -123,6 +124,15 @@ function DocSettings:getSidecarDir(doc_path, force_location)
     if doc_path == nil or doc_path == "" then return "" end
     local path = doc_path:match("(.*)%.") or doc_path -- file path without the last suffix
     local location = force_location or G_reader_settings:readSetting("document_metadata_folder", "doc")
+    if DataStorage:isIsolatedTestProfile() then
+        -- Aliased Android paths must share metadata for the same copied book.
+        local canonical = ffiutil.realpath(doc_path) or doc_path
+        path = canonical:match("(.*)%.") or canonical
+        -- Encode each path component: traversal cannot escape private metadata.
+        return DOCSETTINGS_DIR .. "/" .. path:gsub("[^%w_/-]", function(c)
+            return string.format("%%%02X", c:byte())
+        end) .. ".sdr"
+    end
     if location == "dir" then
         path = DOCSETTINGS_DIR .. path
     elseif location == "hash" then
@@ -269,7 +279,7 @@ function DocSettings:open(doc_path)
         -- Backup file in legacy history folder
         history_file and (history_file .. ".old") or "",
         -- Legacy kpdfview setting
-        doc_path .. ".kpdfview.lua",
+        DataStorage:isIsolatedTestProfile() and "" or doc_path .. ".kpdfview.lua",
     }
     -- We get back an array of tables for *existing* candidates, sorted MRU first (insertion order breaks ties).
     local candidates = buildCandidates(candidates_list)

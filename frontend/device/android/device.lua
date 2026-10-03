@@ -591,6 +591,8 @@ end
 
 -- todo: Wouldn't we like an android.deviceIdentifier() method, so we can use better default paths?
 function Device:getDefaultCoverPath()
+    local storage = require("datastorage")
+    if storage:isIsolatedTestProfile() then return storage:getDataDir() .. "/cover.jpg" end
     if android.prop.product == "ntx_6sl" then -- Tolino HD4 and other
         return android.getExternalStoragePath() .. "/suspend_others.jpg"
     else
