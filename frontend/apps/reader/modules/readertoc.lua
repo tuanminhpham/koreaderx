@@ -940,7 +940,7 @@ function ReaderToc:onShowToc()
     --       This yields *slightly* better alignment between state & mandatory (in terms of effective margins).
     local button_size = self.expand_button:getSize()
     local area = require("ui/readeroverlaygeometry").available(self.ui)
-    local panel_width = math.floor(area.w * 2 / 3)
+    local panel_width = math.floor(math.min(area.w, area.h) * 2 / 3)
     local toc_menu = Menu:new{
         width = panel_width,
         height = area.h,

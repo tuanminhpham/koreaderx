@@ -84,6 +84,18 @@ describe("KOReaderX skim layout with real widgets", function()
                     for _, row in ipairs(widget.layout) do
                         assert.is_true(row[1].dimen.y + row[1].dimen.h <= size[1] - 91)
                     end
+                    local scale = Screen.scaleBySize
+                    Screen.scaleBySize = function(screen, value, ...)
+                        return math.floor(scale(screen, value, ...) * 1.5)
+                    end
+                    widget:paintTo(rotated, 0, 0)
+                    local scaled_frame = widget.skimto_frame.dimen
+                    assert.is_true(scaled_frame.y >= 0)
+                    assert.are.equal(size[1] - 91, scaled_frame.y + scaled_frame.h)
+                    for _, row in ipairs(widget.layout) do
+                        assert.is_true(row[1].dimen.y + row[1].dimen.h <= size[1] - 91)
+                    end
+                    Screen.scaleBySize = scale
                     rotated:free()
                 end
                 assert.are.equal(1, history)

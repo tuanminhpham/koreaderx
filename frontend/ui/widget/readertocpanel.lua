@@ -6,7 +6,7 @@ local Panel = WidgetContainer:extend{ covers_fullscreen = false }
 
 function Panel:relayout()
     local area = Geometry.available(self.ui)
-    local width = math.floor(area.w * 2 / 3)
+    local width = math.floor(math.min(area.w, area.h) * 2 / 3)
     local toolbar = self.ui.gotopage.skimto
     if toolbar and toolbar.skimto_frame.dimen then
         width = math.min(width, toolbar.skimto_frame.dimen.x)
