@@ -1441,12 +1441,58 @@ function KoptInterface:getTextFromNativePositions(doc, native_boxes, pos0, pos1)
     return text_boxes
 end
 
+-- Project selected native PDF text bounds through the actual reflow rectangles.
+-- A colored PDF annotation can make k2pdfopt group an entire line as one
+-- rectmap. Mapping just the endpoint to that rectmap's center would then
+-- highlight the whole line. Keep the relative position within each map.
+function KoptInterface:getReflowedBoxesFromNativeBoxes(doc, pageno, native_boxes)
+    local kc = self:getCachedContext(doc, pageno)
+    if kc.zoom <= 0 then return end
+    local boxes = {}
+    for _, native_box in ipairs(native_boxes) do
+        for i = 0, kc.rectmaps.n - 1 do
+            local map = kc.rectmaps.wrectmap[i]
+            if map.srcdpiw > 0 and map.srcdpih > 0 then
+                local scale_x = kc.dev_dpi * kc.quality / map.srcdpiw / kc.zoom
+                local scale_y = kc.dev_dpi * kc.quality / map.srcdpih / kc.zoom
+                local x = map.coords[0].x * scale_x + kc.bbox.x0
+                local y = map.coords[0].y * scale_y + kc.bbox.y0
+                local w = map.coords[2].x * scale_x
+                local h = map.coords[2].y * scale_y
+                local x0, y0 = math.max(native_box.x, x), math.max(native_box.y, y)
+                local x1 = math.min(native_box.x + native_box.w, x + w)
+                local y1 = math.min(native_box.y + native_box.h, y + h)
+                if x0 < x1 and y0 < y1 then
+                    -- Preserve the established mapping for rotated rectmaps;
+                    -- their native axes need a different transform.
+                    if map.srcrot ~= 0 then return end
+                    table.insert(boxes, {
+                        x = map.coords[1].x + (x0 - x) / scale_x,
+                        y = map.coords[1].y + (y0 - y) / scale_y,
+                        w = (x1 - x0) / scale_x,
+                        h = (y1 - y0) / scale_y,
+                    })
+                end
+            end
+        end
+    end
+    if #boxes > 0 then return boxes end
+end
+
 --[[--
 Get text boxes from page positions.
 --]]
 function KoptInterface:getPageBoxesFromPositions(doc, pageno, ppos0, ppos1)
     if not ppos0 or not ppos1 then return end
     if doc.configurable.text_wrap == 1 then
+        if doc.is_pdf and doc.configurable.forced_ocr ~= 1 then
+            local native_text = doc:getPageTextBoxes(pageno)
+            if native_text and #native_text > 1 then
+                local selected = self:getTextFromBoxes(native_text, ppos0, ppos1)
+                local boxes = self:getReflowedBoxesFromNativeBoxes(doc, pageno, selected.boxes)
+                if boxes then return boxes end
+            end
+        end
         local spos0 = self:nativeToReflowPosTransform(doc, pageno, ppos0)
         local spos1 = self:nativeToReflowPosTransform(doc, pageno, ppos1)
         local page_boxes = self:getReflowedTextBoxes(doc, pageno)
