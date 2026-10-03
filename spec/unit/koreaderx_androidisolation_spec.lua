@@ -1,7 +1,7 @@
 -- luacheck: globals os
 describe("KOReaderX Android companion data isolation", function()
     local util, ffiutil, lfs, saved_android, saved_getenv, directory
-    local private, external, production, storage
+    local private, external, production, storage, saved_realpath, saved_attributes
     local function write(path, data)
         local f = assert(io.open(path, "w")); f:write(data or "original"); f:close()
     end
@@ -27,12 +27,14 @@ describe("KOReaderX Android companion data isolation", function()
         saved_android, saved_getenv = package.loaded.android, os.getenv
     end)
     before_each(function()
+        saved_realpath, saved_attributes = ffiutil.realpath, lfs.attributes
         directory = os.tmpname(); os.remove(directory); util.makePath(directory)
         private, external, production = directory .. "/app_koreaderx-test", directory .. "/shared", directory .. "/production"
         util.makePath(private); util.makePath(external .. "/Books/test/KOReaderX_S10_ZWSqRJ0v"); util.makePath(production)
         storage = loadStorage("org.koreader.launcher.koreaderxtest", true, production)
     end)
     after_each(function()
+        ffiutil.realpath, lfs.attributes = saved_realpath, saved_attributes
         os.getenv, package.loaded.android = saved_getenv, saved_android
         os.remove(external .. "/Books/test/KOReaderX_S10_ZWSqRJ0v/link.pdf") -- purgeDir follows symlinks; remove this test link first.
         assert(ffiutil.purgeDir(directory))
@@ -85,6 +87,92 @@ describe("KOReaderX Android companion data isolation", function()
         assert.has_error(function() policy.prepare(settings, storage) end)
         assert.is_nil(policy.audit({ nested = { [production .. "/original.pdf"] = true } }, {private}))
         assert.is_nil(policy.audit({lastfile = private .. "/../production/original.pdf"}, {private}))
+    end)
+    it("accepts only a filesystem-verified companion alias in generated quickstart lastfile", function()
+        local policy = require("androidtestprofile")
+        local context = "/data/user/0/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local alias = "/data/data/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local test_storage = {
+            getDataDir = function() return context end,
+            getTestBooksDir = function() return external .. "/Books/test/KOReaderX_S10_ZWSqRJ0v" end,
+        }
+        -- The Android mount aliases cannot be created on the host. Only mock
+        -- resolution of those exact roots; ordinary filesystem checks stay real.
+        ffiutil.realpath = function(path)
+            if path == context or path == alias then return saved_realpath(private) end
+            return saved_realpath(path)
+        end
+        local settings = require("luasettings"):wrap{
+            lastfile = alias .. "/help/quickstart-en.html",
+            footer = { container_height = 14, highlight_navigation = false },
+        }
+        policy.prepare(settings, test_storage)
+        assert.equals(alias .. "/help/quickstart-en.html", settings:readSetting("lastfile"))
+        assert.same({ context .. "/plugins" }, settings:readSetting("extra_plugin_paths"))
+        assert.equals(14, settings:readSetting("footer").container_height)
+        for _, denied in ipairs({
+            alias .. "-other/help/quickstart-en.html",
+            "/data/data/org.koreader.launcher.debug/app_koreaderx-test/help/quickstart-en.html",
+            alias .. "/../files/book.pdf",
+            alias .. "/..",
+        }) do
+            settings:saveSetting("lastfile", denied)
+            assert.has_error(function() policy.prepare(settings, test_storage) end)
+        end
+    end)
+    it("rejects companion aliases that are missing, point elsewhere, or have an unresolved Context root", function()
+        local policy = require("androidtestprofile")
+        local context = "/data/user/0/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local alias = "/data/data/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local test_storage = {
+            getDataDir = function() return context end,
+            getTestBooksDir = function() return external .. "/Books/test/KOReaderX_S10_ZWSqRJ0v" end,
+        }
+        for _, mode in ipairs({"missing_alias", "other_root", "both_missing"}) do
+            ffiutil.realpath = function(path)
+                if path == context then return mode ~= "both_missing" and saved_realpath(private) or nil end
+                if path == alias then return mode == "other_root" and saved_realpath(production) or nil end
+                return saved_realpath(path)
+            end
+            local settings = require("luasettings"):wrap{lastfile = alias .. "/help/quickstart-en.html"}
+            assert.has_error(function() policy.prepare(settings, test_storage) end)
+        end
+    end)
+    it("recognizes an exact private bind-mount alias only with matching directory device and inode", function()
+        local policy = require("androidtestprofile")
+        local context = "/data/user/0/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local alias = "/data/data/org.koreader.launcher.koreaderxtest/app_koreaderx-test"
+        local test_storage = {
+            getDataDir = function() return context end,
+            getTestBooksDir = function() return external .. "/Books/test/KOReaderX_S10_ZWSqRJ0v" end,
+        }
+        local attrs = saved_attributes(private)
+        assert.is_number(attrs.dev); assert.is_number(attrs.ino)
+        ffiutil.realpath = function(path)
+            if path == context or path == alias then return path end -- actual Android bind-mount shape
+            return saved_realpath(path)
+        end
+        local alias_attrs = { mode = attrs.mode, dev = attrs.dev, ino = attrs.ino }
+        lfs.attributes = function(path, ...)
+            if path == context then return attrs end
+            if path == alias then return alias_attrs end
+            return saved_attributes(path, ...)
+        end
+        local settings = require("luasettings"):wrap{lastfile = alias .. "/help/quickstart-en.html"}
+        policy.prepare(settings, test_storage)
+        for _, rejected_attrs in ipairs({
+            { mode = "directory", dev = attrs.dev + 1, ino = attrs.ino },
+            { mode = "directory", dev = attrs.dev, ino = attrs.ino + 1 },
+            { mode = "directory", ino = attrs.ino },
+            { mode = "directory", dev = attrs.dev },
+            { mode = "file", dev = attrs.dev, ino = attrs.ino },
+        }) do
+            alias_attrs = rejected_attrs
+            assert.has_error(function() policy.prepare(settings, test_storage) end)
+        end
+        -- nil == nil must never be sufficient identity evidence.
+        attrs = { mode = "directory" }; alias_attrs = { mode = "directory" }
+        assert.has_error(function() policy.prepare(settings, test_storage) end)
     end)
     it("saves and reopens private metadata without reading or deleting sibling metadata", function()
         local old_storage = package.loaded.datastorage
