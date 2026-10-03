@@ -26,6 +26,15 @@ function Panel:relayout()
         menu:updateItems()
         self._scale = scale
     end
+    -- Menu's screen-sized pagination spacing is too wide for this panel.
+    local fixed = 0
+    for _, button in ipairs({menu.page_info_first_chev, menu.page_info_left_chev,
+            menu.page_info_text, menu.page_info_right_chev, menu.page_info_last_chev}) do
+        fixed = fixed + button:getSize().w
+    end
+    menu.page_info_spacer.width = math.max(0, math.min(Screen:scaleBySize(32),
+        math.floor((menu.inner_dimen.w - fixed) / 4)))
+    menu.page_info:resetLayout()
     self.dimen = area
 end
 

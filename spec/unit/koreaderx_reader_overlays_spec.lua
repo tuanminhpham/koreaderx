@@ -64,6 +64,7 @@ describe("KOReaderX reader overlay defaults and routing", function()
         ui.toc:onShowToc()
         UIManager:_repaint()
         local panel, menu = ui.toc.toc_panel, ui.toc.toc_menu
+        assert.is_true(menu.page_info:getSize().w <= menu.inner_dimen.w)
         ui.toc:onShowToc()
         assert.are.equal(panel, ui.toc.toc_panel)
         menu:onMenuSelect({page=1})
