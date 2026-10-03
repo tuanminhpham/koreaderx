@@ -298,6 +298,149 @@ describe("KOReaderX imported annotations with real MuPDF and ReaderUI", function
         assert.is_nil(page:getEmbeddedAnnotations())
         page:close(); native:close()
     end)
+    for _, write_pdf in ipairs({false, true}) do
+        for _, side in ipairs({0, 1}) do
+            it("shrinks an imported endpoint across text pages with write-PDF=" .. tostring(write_pdf) .. " side=" .. side, function()
+                reader:onClose(); reader = nil
+                local native = require("ffi/mupdf").openDocument(filename)
+                local first_page, second_page = native:openPage(10), native:openPage(11)
+                local first_boxes, second_boxes = first_page:getPageText(), second_page:getPageText()
+                local last = first_boxes[#first_boxes][#first_boxes[#first_boxes]]
+                local first = second_boxes[1][1]
+                assert.truthy(last); assert.truthy(first)
+                local function position(word, page)
+                    return {page = page, x = (word.x0 + word.x1) / 2, y = (word.y0 + word.y1) / 2,
+                        zoom = 1, rotation = 0}
+                end
+                local start_second = position(first, 11)
+                first_page:createEmbeddedAnnotation{type = 8, color_n = 3, color_components = {1, 1, 0},
+                    quads = {{last.x0, last.y0, last.x1, last.y0, last.x0, last.y1, last.x1, last.y1}},
+                    contents = "boundary crossing source", author = "boundary crossing author"}
+                first_page:close(); second_page:close(); native:writeDocument(filename); native:close()
+                openReader(); doImport()
+                local index = importedIndex("boundary crossing source")
+                local initial_num = reader.annotation.annotations[index].koreaderx_pdf_source.parts[1].num
+                reader.annotation:addItem{page = 11, text = "boundary page bookmark"}
+                local count = #reader.annotation.annotations
+                local original_hash = Transaction.hash(filename)
+                reader.highlight.highlight_write_into_pdf = write_pdf
+                -- Exercise the same extension and save callbacks as the UI.
+                reader.highlight.highlight_idx = index
+                reader.highlight.hold_pos = {page = 11}
+                reader.highlight.selected_text = reader.document:getTextFromPositions(start_second, start_second)
+                reader.highlight:extendSelection()
+                assert.equals(count, #reader.annotation.annotations, "extension preview must not mutate annotations")
+                assert.truthy(reader.highlight:saveHighlight())
+                index = importedIndex("boundary crossing source")
+                assert.equals(10, reader.annotation.annotations[index].pos0.page)
+                assert.equals(11, reader.annotation.annotations[index].pos1.page)
+                reader.paging:onGotoPage(side == 0 and 10 or 11)
+                local boundary_dialog
+                if side == 0 then
+                    UIManager:show(reader)
+                    reader.highlight:showFullHighlightDialog(index)
+                    boundary_dialog = UIManager:getTopmostVisibleWidget()
+                    boundary_dialog:paintTo(Screen.bb, 0, 0)
+                    boundary_dialog.buttontable.buttons_layout[2][2]:onTapSelectButton()
+                    index = importedIndex("boundary crossing source")
+                else
+                    local changed, updated_index = reader.highlight:updateHighlight(index, side, -1)
+                    assert.is_true(changed)
+                    index = importedIndex("boundary crossing source")
+                    assert.equals(index, updated_index)
+                end
+                local expected_page = side == 0 and 11 or 10
+                local item = reader.annotation.annotations[index]
+                assert.equals(expected_page, item.page)
+                assert.equals(expected_page, item.pageno)
+                assert.equals(expected_page, item.pos0.page)
+                assert.equals(expected_page, item.pos1.page)
+                assert.equals(expected_page, reader.paging.current_page)
+                assert.is_nil(item.ext)
+                assert.truthy(item.pboxes and #item.pboxes > 0)
+                assert.equals(count, #reader.annotation.annotations)
+                assert.equals("boundary crossing source", item.note)
+                assert.equals("boundary crossing author", item.author)
+                if side == 0 then
+                    assert.equals("boundary page bookmark", reader.annotation.annotations[index - 1].text)
+                end
+                -- Never shrink the entire remaining one-word highlight to empty/inverted.
+                local preserved = Annotation.fingerprint(reader.annotation.annotations)
+                if boundary_dialog then
+                    -- The same dialog must follow the item after it moved past a bookmark.
+                    boundary_dialog.buttontable.buttons_layout[2][2]:onTapSelectButton()
+                    UIManager:close(boundary_dialog)
+                else
+                    assert.is_nil(reader.highlight:updateHighlight(index, side, -1))
+                end
+                assert.equals(preserved, Annotation.fingerprint(reader.annotation.annotations))
+                if not write_pdf then assert.equals(original_hash, Transaction.hash(filename)) end
+                reader:onClose(); reader = nil
+                openReader()
+                index = importedIndex("boundary crossing source")
+                item = reader.annotation.annotations[index]
+                assert.equals(expected_page, item.pos0.page)
+                assert.equals(expected_page, item.pos1.page)
+                assert.is_nil(item.ext)
+                assert.equals(count, #reader.annotation.annotations)
+                local reopened = require("ffi/mupdf").openDocument(filename)
+                for _, number in ipairs({10, 11}) do
+                    local page = reopened:openPage(number)
+                    local sources = page:getEmbeddedAnnotations() or {}
+                    local native_page = write_pdf and expected_page or 10
+                    assert.equals(number == native_page and 1 or 0, #sources)
+                    if #sources > 0 then
+                        assert.equals("boundary crossing source", sources[1].raw.contents)
+                        assert.equals("boundary crossing author", sources[1].raw.author)
+                        if number == 10 then assert.equals(initial_num, sources[1].source.num) end
+                    end
+                    page:close()
+                end
+                reopened:close()
+                if not write_pdf then assert.equals(original_hash, Transaction.hash(filename)) end
+            end)
+        end
+    end
+    it("does not mutate an imported candidate across a missing page fragment", function()
+        doImport()
+        local index = importedIndex("first source")
+        local item = util.tableDeepCopy(reader.annotation.annotations[index])
+        -- sample.pdf page 1 is a cover without text; page 10 has genuine words.
+        local page_boxes = reader.document:getTextBoxes(10)
+        local word = page_boxes[1][1]
+        local endpoint = {page = 10, x = (word.x0 + word.x1) / 2, y = (word.y0 + word.y1) / 2}
+        item.ext = {[1] = {pos0 = item.pos0, pos1 = item.pos1, pboxes = item.pboxes},
+            [10] = {pos0 = endpoint, pos1 = endpoint, pboxes = {{x=word.x0,y=word.y0,w=word.x1-word.x0,h=word.y1-word.y0}}}}
+        item.pos1 = endpoint
+        reader.paging:onGotoPage(10)
+        local before = Annotation.fingerprint(item)
+        local pdf_hash = Transaction.hash(filename)
+        assert.is_nil(reader.highlight:updateImportedHighlightPaging(item, 1, -1))
+        assert.equals(before, Annotation.fingerprint(item))
+        assert.equals(pdf_hash, Transaction.hash(filename))
+    end)
+    it("does not mutate an imported candidate across a genuine textless page", function()
+        doImport()
+        local index = importedIndex("first source")
+        local item = util.tableDeepCopy(reader.annotation.annotations[index])
+        local page = reader.document._document:openPage(1)
+        assert.equals(0, #page:getPageText())
+        page:close()
+        local native_boxes = reader.document:getTextBoxes(1)
+        assert.is_true(not native_boxes or #native_boxes == 0)
+        local boxes = reader.document:getTextBoxes(2)
+        local word = boxes[1][1]
+        local endpoint = {page = 2, x = (word.x0 + word.x1) / 2, y = (word.y0 + word.y1) / 2}
+        item.ext = {[1] = {pos0 = item.pos0, pos1 = item.pos1, pboxes = item.pboxes},
+            [2] = {pos0 = endpoint, pos1 = endpoint, pboxes = {{x=word.x0,y=word.y0,w=word.x1-word.x0,h=word.y1-word.y0}}}}
+        item.pos1 = endpoint
+        reader.paging:onGotoPage(2)
+        local before = Annotation.fingerprint(item)
+        local pdf_hash = Transaction.hash(filename)
+        assert.is_nil(reader.highlight:updateImportedHighlightPaging(item, 1, -1))
+        assert.equals(before, Annotation.fingerprint(item))
+        assert.equals(pdf_hash, Transaction.hash(filename))
+    end)
     it("writes effective local style, color and note to every page during explicit bulk save", function()
         doImport()
         local index = importedIndex("first source")

@@ -1055,7 +1055,14 @@ function ReaderHighlight:updateHighlight(index, side, direction, move_by_char)
     if is_updated then
         highlight.text = util.cleanupSelectedText(highlight.text)
         if highlight.koreaderx_pdf_source then
-            return self:commitImportedChange(index, highlight, "geometry")
+            local committed, updated_index = self:commitImportedChange(index, highlight, "geometry")
+            if committed then
+                local endpoint = side == 0 and highlight.pos0 or highlight.pos1
+                if self.ui.paging.current_page ~= endpoint.page then
+                    self.ui:handleEvent(Event:new("GotoPage", endpoint.page))
+                end
+            end
+            return committed, updated_index
         end
         self:writePdfAnnotation("delete", highlight_before)
         self:writePdfAnnotation("save", highlight)
@@ -1148,6 +1155,46 @@ function ReaderHighlight:updateImportedHighlightPaging(highlight, side, directio
     local i1, j1 = kopt:getWordBoxIndices(boxes, part.pos1)
     if not (i0 and i1) then return end
     if i0 > i1 or (i0 == i1 and j0 > j1) then i0, i1, j0, j1 = i1, i0, j1, j0 end
+    -- Shrinking the last word of an endpoint fragment removes that page from
+    -- the logical range. The complete candidate is committed by updateHighlight;
+    -- native source parts must stay intact until that transaction succeeds.
+    if highlight.ext and i0 == i1 and j0 == j1
+        and ((side == 0 and direction == 1) or (side == 1 and direction == -1)) then
+        local next_page = page + direction
+        local adjacent = highlight.ext[next_page]
+        local adjacent_boxes = adjacent and self.document:getTextBoxes(next_page)
+        if not (adjacent and adjacent_boxes and adjacent_boxes[1] and adjacent_boxes[1][1]) then return end
+        local pos0 = util.tableDeepCopy(side == 0 and adjacent.pos0 or highlight.pos0)
+        local pos1 = util.tableDeepCopy(side == 1 and adjacent.pos1 or highlight.pos1)
+        if pos0.page > pos1.page then return end
+        if pos0.page == pos1.page then
+            local a, b = kopt:getWordBoxIndices(adjacent_boxes, pos0)
+            local c, d = kopt:getWordBoxIndices(adjacent_boxes, pos1)
+            if not (a and c) or a > c or (a == c and b > d) then return end
+        end
+        local ext, text, single_boxes = {}, {}, nil
+        for number = pos0.page, pos1.page do
+            local fragment = highlight.ext[number]
+            local page_boxes = fragment and self.document:getTextBoxes(number)
+            -- A gap without text/geometry needs a separate PDF/render contract.
+            -- Keep this operation atomic rather than creating an empty quad.
+            if not (fragment and page_boxes and page_boxes[1] and page_boxes[1][1]) then return end
+            local selected = kopt:getTextFromNativePositions(self.document, page_boxes, fragment.pos0, fragment.pos1)
+            if not (selected and selected.pboxes and #selected.pboxes > 0) then return end
+            ext[number] = {pos0 = util.tableDeepCopy(fragment.pos0), pos1 = util.tableDeepCopy(fragment.pos1),
+                pboxes = selected.pboxes}
+            text[#text + 1] = selected.text or ""
+            single_boxes = selected.pboxes
+        end
+        pos0.zoom, pos0.rotation = highlight.pos0.zoom, highlight.pos0.rotation
+        pos1.zoom, pos1.rotation = highlight.pos1.zoom, highlight.pos1.rotation
+        highlight.pos0, highlight.pos1 = pos0, pos1
+        highlight.page = pos0.page
+        highlight.text = table.concat(text, " ")
+        highlight.ext = pos0.page ~= pos1.page and ext or nil
+        highlight.pboxes = pos0.page == pos1.page and single_boxes or nil
+        return true
+    end
     local i, j = side == 0 and i0 or i1, side == 0 and j0 or j1
     j = j + direction
     if j < 1 then
@@ -1534,44 +1581,44 @@ function ReaderHighlight:showFullHighlightDialog(index)
                 text = start_prev,
                 enabled = change_boundaries_enabled,
                 callback = function()
-                    self:updateHighlight(index, 0, -1, move_by_char)
+                    return self:updateHighlight(index, 0, -1, move_by_char)
                 end,
                 hold_callback = function()
                     move_by_char = not move_by_char
-                    self:updateHighlight(index, 0, -1, true)
+                    return self:updateHighlight(index, 0, -1, true)
                 end,
             },
             {
                 text = start_next,
                 enabled = change_boundaries_enabled,
                 callback = function()
-                    self:updateHighlight(index, 0, 1, move_by_char)
+                    return self:updateHighlight(index, 0, 1, move_by_char)
                 end,
                 hold_callback = function()
                     move_by_char = not move_by_char
-                    self:updateHighlight(index, 0, 1, true)
+                    return self:updateHighlight(index, 0, 1, true)
                 end,
             },
             {
                 text = end_prev,
                 enabled = change_boundaries_enabled,
                 callback = function()
-                    self:updateHighlight(index, 1, -1, move_by_char)
+                    return self:updateHighlight(index, 1, -1, move_by_char)
                 end,
                 hold_callback = function()
                     move_by_char = not move_by_char
-                    self:updateHighlight(index, 1, -1, true)
+                    return self:updateHighlight(index, 1, -1, true)
                 end,
             },
             {
                 text = end_next,
                 enabled = change_boundaries_enabled,
                 callback = function()
-                    self:updateHighlight(index, 1, 1, move_by_char)
+                    return self:updateHighlight(index, 1, 1, move_by_char)
                 end,
                 hold_callback = function()
                     move_by_char = not move_by_char
-                    self:updateHighlight(index, 1, 1, true)
+                    return self:updateHighlight(index, 1, 1, true)
                 end,
             },
         },
@@ -1586,9 +1633,9 @@ function ReaderHighlight:showFullHighlightDialog(index)
                         if not current then UIManager:close(edit_highlight_dialog); return end
                         index = current
                         item = self.ui.annotation.annotations[index]
-                        callback(...)
-                        -- Boundary edits can replace the item while keeping its slot.
-                        refresh(index)
+                        local changed, updated_index = callback(...)
+                        -- A boundary crossing may also reorder the annotation.
+                        refresh(changed == true and type(updated_index) == "number" and updated_index or index)
                     end
                 end
             end
@@ -2373,7 +2420,8 @@ function ReaderHighlight:saveHighlight(extend_to_sentence)
         local candidate = util.tableDeepCopy(self.selected_text)
         local index = candidate._koreaderx_extend_index
         candidate._koreaderx_extend_index, candidate.is_extended = nil, nil
-        if self:commitImportedChange(index, candidate, "geometry") then return index end
+        local committed, updated_index = self:commitImportedChange(index, candidate, "geometry")
+        if committed then return updated_index end
         return
     end
     logger.dbg("save highlight")
@@ -2932,6 +2980,7 @@ function ReaderHighlight:commitImportedChange(index, candidate, action)
     if not self:checkAnnotationEditingAllowed() then return false end
     local Transaction = require("document/pdfannotationtransaction")
     local original = self.ui.annotation.annotations[index]
+    local updated_index = index
     local data = util.tableDeepCopy(self.ui.doc_settings.data)
     data.annotations = util.tableDeepCopy(self.ui.annotation.annotations)
     data.koreaderx_pdf_import = data.koreaderx_pdf_import or { version = 1, tombstones = {} }
@@ -2950,7 +2999,14 @@ function ReaderHighlight:commitImportedChange(index, candidate, action)
             else data.annotations[index] = candidate end
         else
             candidate.datetime_updated = os.date("%Y-%m-%d %H:%M:%S")
-            data.annotations[index] = candidate
+            if action == "geometry" and candidate.page ~= original.page then
+                candidate.chapter = self.ui.toc:getTocTitleByPage(candidate.page)
+                table.remove(data.annotations, index)
+                local container = self.ui.annotation:extend{ annotations = data.annotations }
+                updated_index = container:addItem(candidate)
+            else
+                data.annotations[index] = candidate
+            end
         end
         if self.highlight_write_into_pdf then
             self.document:commitImportedAnnotation(self.ui.doc_settings, data, candidate or util.tableDeepCopy(original), action)
@@ -2980,11 +3036,11 @@ function ReaderHighlight:commitImportedChange(index, candidate, action)
             UIManager:show(Notification:new{ text = _("Removed from KOReader. The original annotation remains in the PDF.") })
         end
     else
-        self.ui:handleEvent(Event:new("AnnotationsModified", { candidate, index_modified = index }))
+        self.ui:handleEvent(Event:new("AnnotationsModified", { candidate, index_modified = updated_index }))
     end
     self.view.footer:maybeUpdateFooter()
     UIManager:setDirty(self.dialog, "ui")
-    return true
+    return true, updated_index
 end
 
 -- Native originals remain intact. Geometry is display data; identity and raw
