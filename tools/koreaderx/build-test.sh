@@ -9,9 +9,11 @@ export ANDROID_VERSION ANDROID_NAME
 OUT=${KX_OUTPUT_DIR:-/tmp/koreaderx-test-build}
 mkdir -p "$OUT"
 OUT=$(realpath "$OUT")
-# Refresh the vendored plugin before creating assets. Set this to the mounted source path.
-: "${ASSISTANT_SOURCE:=$HOME/Projects/koreaderx/assistant.koplugin}"
-python3 tools/koreaderx/sync-assistant.py --source "$ASSISTANT_SOURCE" --checkout "$ROOT"
+# A fresh clone builds its vendored snapshot. External development sync is opt-in.
+if [[ -n "${ASSISTANT_SOURCE:-}" ]]; then
+    python3 tools/koreaderx/sync-assistant.py --source "$ASSISTANT_SOURCE" --checkout "$ROOT"
+fi
+python3 tools/koreaderx/sync-assistant.py --check --checkout "$ROOT"
 # This prepares the optimized native libraries AND regenerates the resource archive.
 ./kodev release -i android-arm64
 STAGE="$ROOT/koreader-android-aarch64-unknown-linux-android21/luajit-launcher"

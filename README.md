@@ -1,3 +1,13 @@
+# KOReaderX Test Alpha 2.0
+
+[Download the Alpha 2.0 prerelease](https://github.com/tuanminhpham/koreaderx/releases/tag/v2.0.0-alpha.1) · [English user guide](docs/ALPHA_2_0_USER_GUIDE_EN.md) · [Release notes](docs/RELEASE_NOTES_ALPHA_2_0_EN.md) · [Build instructions](docs/BUILD_ALPHA_2_0_EN.md)
+
+Android ARM64 evaluation build with AI Assistant, the compact 13-button toolbar, persistent reader TOC and PDF annotation import/write-back. Package: `org.koreader.launcher.koreaderxtest`. Books are restricted to `/storage/emulated/0/Books/test/KOReaderX_S10_ZWSqRJ0v` and its descendants. Back up before updating; read the known limitations. The Alpha 1.0 milestone is retained.
+
+The following upstream KOReader documentation describes the broader project; use the links above for this fork's Test APK and workflow.
+
+---
+
 [![KOReader](https://raw.githubusercontent.com/koreader/koreader.github.io/master/koreader-logo.png)](https://koreader.rocks)
 
 #### KOReader is a document viewer primarily aimed at e-ink readers.
