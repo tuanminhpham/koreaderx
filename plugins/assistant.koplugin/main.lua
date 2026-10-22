@@ -373,6 +373,7 @@ function Assistant:init()
 
 
   self.assistant_dialog = AssistantDialog:new(self, CONFIGURATION)
+  self:registerDictButtons()
 
   -- Ensure custom prompts from configuration are merged before building menus
   -- so that `show_on_main_popup` and `visible` overrides take effect.
@@ -492,43 +493,53 @@ function Assistant:addMainButton(prompt_idx, prompt)
   end)
 end
 
-function Assistant:onDictButtonsReady(dict_popup, dict_buttons)
-  if not CONFIGURATION then return end
+-- Current KOReader builds dictionary buttons from registered specs, not a
+-- DictButtonsReady event. Stable IDs replace earlier registration, and dynamic
+-- visibility follows settings without persisting transient rows in user layout.
+function Assistant:registerDictButtons()
+  local dictionary = self.ui and self.ui.dictionary
+  if not dictionary or not self.assistant_dialog then return end
 
-  local plugin_buttons = {}
-  if self.settings:readSetting("dict_popup_show_wikipedia", true) then
-    table.insert(plugin_buttons, {
-      id = "assistant_wikipedia",
-      font_bold = true,
-      text = _("Wikipedia") .. " (AI)",
-      callback = function()
-          NetworkMgr:runWhenOnline(function()
-              Trapper:wrap(function()
-                self.assistant_dialog:showCustomPrompt(dict_popup.word, "wikipedia")
-              end)
-          end)
-      end,
-    })
+  local function runQuery(callback)
+    local run = function() Trapper:wrap(callback) end
+    -- The local setup provider must not prompt for network connectivity.
+    if self.querier.provider_name == "offline" then
+      run()
+    else
+      NetworkMgr:runWhenOnline(run)
+    end
   end
 
-  if self.settings:readSetting("dict_popup_show_dictionary", true) then
-    table.insert(plugin_buttons, {
-      id = "assistant_dictionary",
-      text = _("Dictionary") .. " (AI)",
-      font_bold = true,
-      callback = function()
-          NetworkMgr:runWhenOnline(function()
-              Trapper:wrap(function()
-                showDictionaryDialog(self, dict_popup.word)
-              end)
-          end)
-      end,
-    })
-  end
-
-  if #plugin_buttons > 0 and #dict_buttons > 1 then
-    table.insert(dict_buttons, 2, plugin_buttons) -- add to the last second row of buttons
-  end
+  dictionary:addToDictButtons{
+    id = "assistant_wikipedia",
+    text = _("Wikipedia") .. " (AI)",
+    font_bold = true,
+    conditional = true,
+    row_group = "assistant",
+    show_func = function()
+      return self.settings:readSetting("dict_popup_show_wikipedia", true)
+    end,
+    callback = function(dict_popup)
+      runQuery(function()
+        self.assistant_dialog:showCustomPrompt(dict_popup.word, "wikipedia")
+      end)
+    end,
+  }
+  dictionary:addToDictButtons{
+    id = "assistant_dictionary",
+    text = _("Dictionary") .. " (AI)",
+    font_bold = true,
+    conditional = true,
+    row_group = "assistant",
+    show_func = function()
+      return self.settings:readSetting("dict_popup_show_dictionary", true)
+    end,
+    callback = function(dict_popup)
+      runQuery(function()
+        showDictionaryDialog(self, dict_popup.word)
+      end)
+    end,
+  }
 end
 
 -- Event handlers for gesture-triggered actions
