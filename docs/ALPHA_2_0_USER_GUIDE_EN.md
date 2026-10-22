@@ -36,8 +36,8 @@ The Android launcher name is **KOReaderX Test**, package `org.koreader.launcher.
 ### Back up before an update
 
 1. Close the book using the top menu's **File manager** folder icon, then exit normally to flush settings.
-2. Copy the entire Test books directory, including hidden files and every `.sdr` sidecar directory. Copying PDFs alone does not preserve KOReaderX metadata.
-3. Back up the private Test profile too if you need its settings. Its directory is `/data/user/0/org.koreader.launcher.koreaderxtest/app_koreaderx-test`. Android file managers cannot normally access it. Android automatic application backup is disabled for this APK. Profile backups may contain AI credentials; keep them private.
+2. Copy the entire Test books directory, including any hidden files and `.sdr` directories that are present. This preserves the PDFs and book-adjacent files, but does not include this Test package’s canonical book metadata.
+3. **Back up the private Test profile as well. This is required to preserve highlights, notes, bookmarks and reading positions.** Its directory is `/data/user/0/org.koreader.launcher.koreaderxtest/app_koreaderx-test`; canonical book metadata is in its `docsettings/` tree. **A Books-only backup is insufficient.** Android file managers cannot normally access the private profile, and Android automatic application backup is disabled for this APK. The profile also contains preferences and may contain AI credentials; keep its backup private.
 
 Advanced backup from an authorized ADB host, with the app exited and `SERIAL` replaced by the device serial:
 
@@ -156,7 +156,7 @@ The opening check compares the file's filesystem modification time with the time
 
 Reimport merges new sources and skips unchanged sources already known to metadata. It preserves local notes and overrides when an existing source has changed externally and reports a conflict rather than silently overwriting them. It does not automatically remove metadata items just because another application deleted their PDF originals. A rewritten PDF with new object numbers can be recognized when a complete original annotation snapshot has exactly one match; ambiguous cases are reported for review. Two independent annotations on the same words are not assumed to be duplicates.
 
-A PDF saved under a different filename or path is a separate book for normal metadata lookup. Do not expect its prior reading position, local highlights or deleted-source list to follow automatically. A new file may contain the same embedded annotations, which it can import into its own metadata. Metadata-location settings can affect lookup, so keep the original PDF and sidecar together when making a backup.
+A PDF saved under a different filename or path is a separate book for normal metadata lookup. Do not expect its prior reading position, local highlights or deleted-source list to follow automatically. A new file may contain the same embedded annotations, which it can import into its own metadata. This isolated Test package keeps canonical sidecars in its private profile’s `docsettings/` tree. Back up that private profile alongside the original PDFs; do not rely on finding a sidecar next to each PDF.
 
 ### Locally deleted items and deliberate replacement
 
@@ -200,7 +200,7 @@ Write-all is a sequence of item operations, not a single all-document transactio
 - With write-PDF **on**, deleting a tracked imported or owned item can remove its tracked native parts as well. Other annotations are retained. This is not a complete bidirectional synchronizer for arbitrary external edits.
 - **Delete all highlights from PDF file** is a separate, confirmed command in the write-PDF submenu. It removes tracked PDF parts while keeping metadata highlights. It is not the same as deleting the metadata, and a later write-all can embed those remaining highlights again. Untracked foreign annotations are not selected for deletion merely by matching geometry.
 - Deleting an annotation is not secure erasure. Incremental PDF history and retained transaction/sidecar backups may still contain earlier data. Keep backups for recovery and manage their storage deliberately.
-- The optional hash-based metadata location can lose association after PDF bytes change. KOReaderX warns about this when enabling write-PDF. Prefer an audited directory-based metadata setup for annotation editing and retain backups of both forms of data.
+- This isolated Test profile enforces directory-based metadata in its private `docsettings/` tree. General KOReader code warns about hash-based storage when PDF bytes change, but this Test build does not use that layout. Retain both the private-profile backup and the PDFs.
 
 ### Annotation limitations and validation scope
 

@@ -31,7 +31,7 @@ Download **`KOReaderX-Test-Alpha-2.0-arm64-v8a.apk`** for a 64-bit ARM Android d
 | Build | `Arm64RocksDebug` — optimized native libraries, debuggable Android app |
 | Tag | `v2.0.0-alpha.1` |
 
-Back up the Test profile and PDFs **with their metadata sidecars** before upgrading. Install over the existing Test package with the matching signing certificate; do not uninstall or clear data. A successful installer result alone does not prove metadata preservation. For a new installation, allow the installer to install unknown apps if Android asks, then grant **KOReaderX Test** storage/all-files access when prompted. The Android permission screen wording varies by firmware.
+Before upgrading, back up **both the PDFs and the entire private Test profile**. This package keeps canonical highlights, notes, bookmarks and reading positions in the private profile’s `docsettings/` tree; **a Books-only backup is insufficient**. Include any book-adjacent sidecars that are present too. Install over the existing Test package with the matching signing certificate; do not uninstall or clear data. A successful installer result alone does not prove metadata preservation. For a new installation, allow the installer to install unknown apps if Android asks, then grant **KOReaderX Test** storage/all-files access when prompted. The Android permission screen wording varies by firmware.
 
 This APK is restricted to books in:
 
@@ -72,7 +72,7 @@ No new paid AI request is part of this release publication. Host/API tests, Andr
 - **Import is a merge, not universal synchronization:** supported text markup is Highlight/Underline/Squiggly/StrikeOut with valid quad geometry. Unsupported annotation types are skipped; extracted text may be empty without a usable text layer. Changed/ambiguous sources and legacy ownership can require review. Externally deleted sources do not automatically delete metadata.
 - **Opening prompt uses modification time:** Cancel acknowledges the current timestamp. Timestamp-preserving external edits may need manual import.
 - **Write-all requires write-PDF on:** ordinary changes may remain staged until normal book close. Keep the option on through close, then verify the resulting PDF independently. Earlier items can succeed before a later item fails; write-all is not one document-wide atomic operation.
-- **Recovery and deletion:** preserve PDF/sidecar/transaction backups on failure. Annotation deletion is not secure erasure and this is not a general bidirectional sync engine. Hash-based metadata storage needs particular care when PDF bytes change.
+- **Recovery and deletion:** preserve PDF/sidecar/transaction backups on failure. Annotation deletion is not secure erasure and this is not a general bidirectional sync engine. This Test package’s canonical metadata is private; preserve its profile as well as the PDFs.
 - **Protected/encrypted PDF qualification is incomplete.** Read-only paths, missing write permission, insufficient space or external edits can block publication.
 - **Assistant:** your own service/account/model access is required. Gemini nonstream translation was demonstrated; streaming, every provider and optional summary/X-Ray/recap/notebook service outcomes are not all qualified. HTTP429 indicates provider limits, not a successful answer.
 - **TOC coverage:** ordinary flat-TOC selection/persistence and host branch cases have coverage; not every nested hardware layout was exercised. Modal menus other than reader TOC keep their own display and dismissal behavior.
