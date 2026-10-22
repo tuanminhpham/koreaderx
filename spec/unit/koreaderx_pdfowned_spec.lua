@@ -440,4 +440,77 @@ describe("KOReaderX owned PDF highlights with real ReaderUI and MuPDF", function
         reader.document:discardChange()
     end)
 
+    it("retains ordinary PDF ownership across mixed-source bulk writes and repeated reopen", function()
+        -- Put an ordinary local highlight between imported items in reading
+        -- order. Imported commits replace the live annotations table, so the
+        -- bulk command must obtain the current item before each operation.
+        for _, page_number in ipairs({10, 11, 12}) do
+            local page = reader.document._document:openPage(page_number)
+            page:createEmbeddedAnnotation{
+                type = 8, quads = Annotation.quads(selected(page_number).pboxes),
+                color_n = 3, color_components = {1, 1, 0},
+                author = "Bulk fixture", contents = "Imported page " .. page_number,
+            }
+            page:close()
+        end
+        reader.document.is_edited = true
+        reader.highlight.highlight_write_into_pdf = false
+        assert.equals(3, import())
+        local text = selected(10, 2)
+        text.drawer, text.color, text.note = "lighten", "cyan", "Bulk local note"
+        reader.highlight.selected_text = text
+        assert.is_number(reader.highlight:saveHighlight())
+        assert.equals(4, #reader.annotation.annotations)
+        assert.truthy(reader.annotation.annotations[1].koreaderx_pdf_source)
+        assert.equals(2, ownedIndex())
+        assert.truthy(reader.annotation.annotations[3].koreaderx_pdf_source)
+        assert.equals(0, #reader.annotation.annotations[ownedIndex()].koreaderx_pdf_owned.parts)
+        reader.highlight.highlight_write_into_pdf = true
+
+        local function writeAllFromRegisteredMenu()
+            local menu_items = {}
+            reader.highlight:addToMainMenu(menu_items)
+            local command
+            for _, item in ipairs(menu_items.highlight_options.sub_item_table) do
+                for _, sub_item in ipairs(item.sub_item_table or {}) do
+                    if sub_item.text == "Write all highlights into PDF file" then command = sub_item end
+                end
+            end
+            assert.truthy(command)
+            assert.is_true(command.enabled_func())
+            command.callback()
+            local confirmation = UIManager:getTopmostVisibleWidget()
+            assert.equals("Are you sure you want to write all KOReader highlights into PDF file?", confirmation.text)
+            confirmation.ok_callback()
+            UIManager:close(confirmation)
+        end
+        for _ = 1, 3 do
+            writeAllFromRegisteredMenu()
+            local item = reader.annotation.annotations[ownedIndex()]
+            assert.equals(1, #item.koreaderx_pdf_owned.parts)
+            assert.equals("Bulk local note", item.koreaderx_pdf_owned.parts[1].raw.contents)
+            assert.equals("cyan", item.color)
+            closeReader()
+            assert.equals(2, diskCount(10))
+            assert.equals(1, diskCount(11))
+            assert.equals(1, diskCount(12))
+            openReader(true)
+            assert.equals(4, #reader.annotation.annotations)
+            assert.equals(1, #reader.annotation.annotations[ownedIndex()].koreaderx_pdf_owned.parts)
+            assert.equals(0, import())
+            local seen = {}
+            for _, page_number in ipairs({10, 11, 12}) do
+                for _, entry in ipairs(entries(page_number)) do
+                    local note = entry.raw.contents
+                    assert.is_nil(seen[note])
+                    seen[note] = true
+                end
+            end
+            assert.truthy(seen["Bulk local note"])
+            for _, page_number in ipairs({10, 11, 12}) do
+                assert.truthy(seen["Imported page " .. page_number])
+            end
+        end
+    end)
+
 end)

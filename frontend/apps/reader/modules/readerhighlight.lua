@@ -676,10 +676,13 @@ If you wish your highlights to be saved in the document, just move it to a writa
                             ok_callback = function()
                                 if not self:checkAnnotationEditingAllowed() then return end
                                 local count = 0
-                                for _, item in ipairs(self.ui.annotation.annotations) do
+                                -- Imported transactions replace the annotations table.
+                                -- Reacquire each item so ordinary ownership is saved in
+                                -- the live table rather than an obsolete iterator table.
+                                for index = 1, #self.ui.annotation.annotations do
+                                    local item = self.ui.annotation.annotations[index]
                                     if item.drawer then
                                         if item.koreaderx_pdf_source then
-                                            local index = self.ui.annotation:getItemIndex(item)
                                             if not self:commitImportedChange(index, util.tableDeepCopy(item), "all") then break end
                                         else
                                             if self:writePdfAnnotation("replace", item, nil, util.tableDeepCopy(item)) == false then break end

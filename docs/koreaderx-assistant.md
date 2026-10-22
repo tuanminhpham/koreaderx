@@ -19,13 +19,13 @@ Inside the documented Android toolchain container, with the checkout mounted at 
 cd /work
 # No external assistant source is required for a release build.
 env -u ASSISTANT_SOURCE \
-  ANDROID_VERSION=11973 \
+  ANDROID_VERSION=11974 \
   ANDROID_NAME=v2.0.0-alpha.1-KOReaderX-Test \
   KX_OUTPUT_DIR=/output \
   bash tools/koreaderx/build-test.sh
 ```
 
-These overrides specify Alpha 2.0. Pipeline input `11973` produces ARM64 Android versionCode `119732`; verify the actual APK against BUILD_INFO.json. Increase the version for a later update. The script validates the plugin manifest before regenerating assets with `kodev release -i android-arm64`, then runs `assembleArm64RocksDebug` with `isolatedTest=true`. It never installs or uninstalls an app.
+These overrides specify Alpha 2.0. Pipeline input `11974` produces ARM64 Android versionCode `119742`; verify the actual APK against BUILD_INFO.json. Increase the version for a later update. The script validates the plugin manifest before regenerating assets with `kodev release -i android-arm64`, then runs `assembleArm64RocksDebug` with `isolatedTest=true`. It never installs or uninstalls an app.
 
 Supply the existing Test signing key privately to produce a compatible update. Its public certificate SHA256 is `4ced17eb89f07fe72eec6e5768b9d5e0720683224c0d491e3693c8f54d3d535d`. A newly generated debug key produces a different signer. Never commit a signing key, API key or device profile. Check the APK's package, ABI, version and certificate before installation; preserve data with `adb -s SERIAL install -r VERIFIED.apk`, never uninstall/clear-data or `kodev run`.
 

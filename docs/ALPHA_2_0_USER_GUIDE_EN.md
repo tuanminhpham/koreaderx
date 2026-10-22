@@ -9,7 +9,7 @@ This English guide describes the isolated Android **KOReaderX Test Alpha 2.0** p
 | APK | `KOReaderX-Test-Alpha-2.0-arm64-v8a.apk` |
 | ABI | `arm64-v8a` (64-bit ARM) |
 | versionName | `v2.0.0-alpha.1-KOReaderX-Test` |
-| versionCode | `119732` |
+| versionCode | `119742` |
 | Build variant | `Arm64RocksDebug`: optimized native libraries with a debuggable Android application |
 | Release tag | `v2.0.0-alpha.1` |
 
@@ -190,7 +190,7 @@ Saving a highlight in metadata and embedding it in the PDF are separate operatio
 
 The command writes the metadata geometry, color, supported style and note into the PDF. Text-markup content is represented by quads over the PDF text; the note is stored as annotation **Contents**. Supported native styles are highlight, underline and strikeout. Some display styles have no equivalent PDF markup; their appearance cannot be promised to match another reader exactly. On imported items, unchanged source properties are retained; local color/style/boundary overrides are applied by the write-all action, and note contents are updated. A multi-page highlight can require one PDF annotation per page.
 
-For an imported annotation, KOReaderX uses its source identity and saved raw snapshot to update that source, including adding/removing page fragments after a boundary change. For a newly created KOReaderX highlight, tracked owned PDF parts are replaced rather than adding another copy each time. It does not delete an unrelated annotation just because it overlaps the same words. Repeating write-all/import on unchanged, trusted sources is covered by host regression tests, but you should still compare counts when a third-party editor has rewritten the file. Missing/stale ownership, externally changed sources and ambiguous legacy data can block a write instead of guessing which PDF object belongs to the highlight. Preserve the file, sidecar and transaction backups and reconcile before retrying.
+For an imported annotation, KOReaderX uses its source identity and saved raw snapshot to update that source, including adding/removing page fragments after a boundary change. For a newly created KOReaderX highlight, tracked owned PDF parts are replaced rather than adding another copy each time. It does not delete an unrelated annotation just because it overlaps the same words. Repeating write-all/import on unchanged, trusted sources is covered by host regression tests, including three write/close/reopen cycles with a mixed imported/local batch. This prevents the ownership-loss duplicate found during release testing; it does not automatically remove duplicate PDF copies already produced by an older build. Keep a pre-write backup and still compare counts when a third-party editor has rewritten the file. Missing/stale ownership, externally changed sources and ambiguous legacy data can block a write instead of guessing which PDF object belongs to the highlight. Preserve the file, sidecar and transaction backups and reconcile before retrying.
 
 Write-all is a sequence of item operations, not a single all-document transaction: an error can stop the loop after earlier items have succeeded. The count reports items processed, not a guarantee that every source was writable. Imported-item changes use paired PDF/metadata transactions with retained backups; ordinary items retain staged write-on-close behavior. Insufficient storage, read-only paths, password/candidate-open failures or concurrent external edits can prevent completion. Protected/encrypted PDF compatibility has not been fully qualified, and this release does not promise to bypass document protection.
 
@@ -316,11 +316,11 @@ The Test path restriction, debug Android variant, incomplete third-party annotat
 
 ## Verification scope and short manual checks
 
-The runtime baseline was commit `e5ba9d225edc9ff2f28dfd25ab72e7fa13c69566`, verified as Test versionCode `119722`. Alpha 2.0 adds release documentation, a self-contained build-validation path and a focused reader-menu fix: bulk PDF commands include highlights with notes and remain disabled when write-PDF is off or unset. The Assistant runtime remains the verified vendored integration. The final build's source commit and hashes are in `BUILD_INFO.json`. Evidence available when this guide was frozen is separated below; the release's `TEST_RESULTS.json` records final-APK installation, artifact checks and any subsequent device smoke tests.
+The runtime baseline was commit `e5ba9d225edc9ff2f28dfd25ab72e7fa13c69566`, verified as Test versionCode `119722`. Alpha 2.0 adds release documentation, a self-contained build-validation path and a focused reader-menu fix: bulk PDF commands include highlights with notes and remain disabled when write-PDF is off or unset; mixed imported/local bulk writes retain ordinary annotation ownership across transaction table replacement. The Assistant runtime remains the verified vendored integration. The final build's source commit and hashes are in `BUILD_INFO.json`. Evidence available when this guide was frozen is separated below; the release's `TEST_RESULTS.json` records final-APK installation, artifact checks and any subsequent device smoke tests.
 
 | Check | Recorded status | Scope |
 | --- | --- | --- |
-| Focused reader/annotation/Assistant host regression | PASS_HOST | 157 tests: 143 inherited reader/annotation/Assistant regression cases plus 14 focused bulk-menu cases for the note-count fix, using isolated profiles/fixtures. |
+| Focused reader/annotation/Assistant host regression | PASS_HOST | 158 tests: 143 inherited reader/annotation/Assistant regression cases, 14 focused bulk-menu cases for the note-count fix, and one mixed-source bulk-write lifecycle regression, using isolated profiles/fixtures. |
 | Vendored-plugin build-input validation | PASS_HOST | 14 checks, including independent use of the vendored snapshot, excluded private configuration, hash validation and invalid-input rejection. |
 | Assistant HTTPS transport | PASS_HOST | 23 cases: 10 actual local LuaSec request cases and 13 hostname/SAN cases; no paid provider calls. |
 | Fresh defaults | PASS_HOST | Isolated profile/fixture tests; this is not a first-install TabXC test. |

@@ -30,14 +30,14 @@ docker run --rm --user "$(id -u):$(id -g)" \
   --env CCACHE_DIR=/cache/ccache --env XDG_CACHE_HOME=/cache/xdg \
   --env JAVA_TOOL_OPTIONS=-Duser.home=/private-java-home \
   --env PARALLEL_JOBS=6 \
-  --env ANDROID_VERSION=11973 \
+  --env ANDROID_VERSION=11974 \
   --env ANDROID_NAME=v2.0.0-alpha.1-KOReaderX-Test \
   --env KX_OUTPUT_DIR=/output \
   --entrypoint /bin/bash koreaderx-alpha2-tools \
   -c 'env -u ASSISTANT_SOURCE bash tools/koreaderx/build-test.sh'
 ```
 
-`build-test.sh` validates the73-file vendored plugin manifest, regenerates Android assets with `kodev release -i android-arm64`, then runs `app:assembleArm64RocksDebug`. This is a **debuggable Android APK with optimized native libraries**, not a production-signed Release variant. The launcher derives ARM64 versionCode **119732** from input11973; inspect the actual APK rather than inferring its manifest identity from the input alone. Rename the output APK to `KOReaderX-Test-Alpha-2.0-arm64-v8a.apk` only after verifying package, version, ABI and signer.
+`build-test.sh` validates the73-file vendored plugin manifest, regenerates Android assets with `kodev release -i android-arm64`, then runs `app:assembleArm64RocksDebug`. This is a **debuggable Android APK with optimized native libraries**, not a production-signed Release variant. The launcher derives ARM64 versionCode **119742** from input11974; inspect the actual APK rather than inferring its manifest identity from the input alone. Rename the output APK to `KOReaderX-Test-Alpha-2.0-arm64-v8a.apk` only after verifying package, version, ABI and signer.
 
 If the external plugin source changes during development, explicitly sync it first using `--source`, review and commit the resulting plugin/manifest changes, and only then freeze and build the release. See [the Assistant build notes](koreaderx-assistant.md). An unset `ASSISTANT_SOURCE` builds solely from the committed snapshot.
 
