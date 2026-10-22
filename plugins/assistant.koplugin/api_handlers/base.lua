@@ -3,7 +3,7 @@ local http = require("socket.http")
 local ltn12 = require("ltn12")
 local socket = require("socket")
 local socketutil = require("socketutil")
-local https = require("ssl.https")
+local Transport = require("assistant_transport")
 local Device = require("device")
 local Trapper = require("ui/trapper")
 
@@ -51,10 +51,6 @@ end
 --- @param maxtime any total response finished max time
 --- @return boolean success, string status_code, string content
 local function postURLContent(url, headers, body, timeout, maxtime)
-    if string.sub(url, 1, 8) == "https://" then
-        https.cert_verify = false  -- disable CA verify
-    end
-
     local sink = {}
     socketutil:set_timeout(timeout, maxtime)
     local request = {
@@ -64,7 +60,7 @@ local function postURLContent(url, headers, body, timeout, maxtime)
         source = ltn12.source.string(body or ""),
         sink = maxtime and socketutil.table_sink(sink) or ltn12.sink.table(sink),
     }
-    local code, headers, status = socket.skip(1, http.request(request)) -- skip the first return value, not needed
+    local code, headers, status = socket.skip(1, http.request(Transport.secure(request))) -- skip the first return value, not needed
     socketutil:reset_timeout()
     local content = table.concat(sink)  -- response body
 
@@ -79,7 +75,7 @@ local function postURLContent(url, headers, body, timeout, maxtime)
     -- check for network errors
     if headers == nil then
         logger.warn("No HTTP headers:", status or code or "network unreachable")
-        return false, BaseHandler.CODE_NETWORK_ERROR, "Network Error: " .. status or code
+        return false, BaseHandler.CODE_NETWORK_ERROR, "Network Error: " .. tostring(status or code or "network unreachable")
     end
 
     -- check response length
@@ -151,7 +147,7 @@ function BaseHandler:backgroudRequest(url, headers, body)
             source = ltn12.source.string(body or ""),
             sink = ltn12.sink.file(pipe_w),  -- response body write to pipe
         }
-        local code, headers, status = socket.skip(1, http.request(request)) -- skip the first return value
+        local code, headers, status = socket.skip(1, http.request(Transport.secure(request))) -- skip the first return value
         if code ~= 200 then -- non-200 response code, write error to pipe
             logger.warn("Background request non-200:", code, "status:", status, "url:", url)
             ffiutil.writeToFD(child_write_fd, string.format("\r\n%s [%s %s] URL:%s\n\n", self.PROTOCAL_NON_200, status or "", code or "", url))  -- write end of response
