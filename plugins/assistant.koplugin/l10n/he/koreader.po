@@ -1,0 +1,628 @@
+# תרגום עברית של תוסף ה-Assistant.
+# Copyright (C) 2025 קבוצת התרגום של תוסף ה-Assistant
+# קובץ זה מופץ תחת אותה רישיון כמו חבילת ה-Assistant.
+# ChatGPT 4.0 <chatgpt@openai.com>, 2025.
+#
+msgid   ""
+msgstr  "Project-Id-Version: assistant.koplugin 1.0\n"
+        "Report-Msgid-Bugs-To: \n"
+        "POT-Creation-Date: 2025-09-05 16:37+0800\n"
+        "PO-Revision-Date: 2025-08-25 16:59+0300\n"
+        "Last-Translator: ChatGPT 4.0 <chatgpt@openai.com>\n"
+        "Language-Team: ChatGPT 4.0 <chatgpt@openai.com>\n"
+        "Language: עברית (he)\n"
+        "MIME-Version: 1.0\n"
+        "Content-Type: text/plain; charset=UTF-8\n"
+        "Content-Transfer-Encoding: 8bit\n"
+        "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ../_meta.lua:4 ../assistant_dialog.lua:369 ../main.lua:111 ../main.lua:338
+msgid   "AI Assistant"
+msgstr  "עוזר מלאכותי"
+
+#: ../_meta.lua:5
+msgid   "💡 Enhance your KOReader experience with AI"
+msgstr  "💡 שפר את חוויית KOReader עם בינה מלאכותית"
+
+#: ../assistant_dialog.lua:85
+msgid   "(Empty message)"
+msgstr  "(הודעה ריקה)"
+
+#: ../assistant_dialog.lua:89
+msgid   "(No response)"
+msgstr  "(אין תגובה)"
+
+#: ../assistant_dialog.lua:118
+msgid   "Highlighted text:"
+msgstr  "טקסט מודגש:"
+
+#: ../assistant_dialog.lua:258 ../assistant_dictdialog.lua:36
+#: ../assistant_settings.lua:89 ../assistant_viewer.lua:639
+msgid   "Cancel"
+msgstr  "ביטול"
+
+#: ../assistant_dialog.lua:265 ../assistant_viewer.lua:649
+msgid   "Ask"
+msgstr  "שאל"
+
+#: ../assistant_dialog.lua:271 ../assistant_viewer.lua:655
+msgid   "Enter a question before proceeding."
+msgstr  "הכנס שאלה לפני המשך"
+
+#: ../assistant_dialog.lua:296
+msgid   "Book Analysis"
+msgstr  "ניתוח ספר"
+
+#: ../assistant_dialog.lua:333
+msgid   "Add this button to the Highlight Menu?"
+msgstr  "האם להוסיף כפתור זה לתפריט הדגשה?"
+
+#: ../assistant_dialog.lua:334
+msgid   "Add"
+msgstr  "הוסף"
+
+#: ../assistant_dialog.lua:361
+msgid   "Ask a question about the highlighted text"
+msgstr  "שאל שאלה על הטקסט המודגש"
+
+#: ../assistant_dialog.lua:362
+#, lua-format
+msgid   "Ask a question about this book:\n"
+        "%s by %s"
+msgstr  "שאל שאלה על הספר:\n"
+        "%s מאת %s"
+
+#: ../assistant_dialog.lua:365
+msgid   "Type your question here..."
+msgstr  "הקלד שאלה כאן..."
+
+#: ../assistant_dialog.lua:366
+msgid   "Ask anything about this book..."
+msgstr  "שאל כל דבר על הספר..."
+
+#: ../assistant_dialog.lua:424
+msgid   "Error: No response received"
+msgstr  "שגיאה: לא התקבלה תגובה"
+
+#: ../assistant_dictdialog.lua:30
+msgid   "AI Dictionary"
+msgstr  "מילון מלאכותי"
+
+#: ../assistant_dictdialog.lua:31
+msgid   "Enter a word to look up..."
+msgstr  "הכנס מילה לחיפוש..."
+
+#: ../assistant_dictdialog.lua:42
+msgid   "Look Up"
+msgstr  "חפש"
+
+#: ../assistant_dictdialog.lua:177 ../assistant_prompts.lua:20 ../main.lua:539
+msgid   "Dictionary"
+msgstr  "מילון"
+
+#: ../assistant_featuredialog.lua:32
+msgid   "Recap"
+msgstr  "סיכום"
+
+#: ../assistant_featuredialog.lua:33
+msgid   "Loading Recap..."
+msgstr  "טוען סיכום..."
+
+#: ../assistant_featuredialog.lua:38
+msgid   "X‑Ray"
+msgstr  "רנטגן"
+
+#: ../assistant_featuredialog.lua:39
+msgid   "Loading X-Ray..."
+msgstr  "טוען X-Ray..."
+
+#: ../assistant_featuredialog.lua:44
+msgid   "Book Information"
+msgstr  "מידע על הספר"
+
+#: ../assistant_featuredialog.lua:45
+msgid   "Loading Book Information..."
+msgstr  "טוען מידע על הספר..."
+
+#: ../assistant_featuredialog.lua:56
+#, lua-format
+msgid   "Unknown feature type: %s"
+msgstr  "סוג פונקציה לא ידוע: %s"
+
+#: ../assistant_prompts.lua:21
+msgid   "This prompt acts as a dictionary for the highlighted text, to a word or phrase."
+msgstr  "הקוד הזה פועל כמילון לטקסט המודגש, למילה או ביטוי."
+
+#: ../assistant_prompts.lua:26
+msgid   "Vocabulary"
+msgstr  "אוצר מילים"
+
+#: ../assistant_prompts.lua:28
+msgid   "This prompt analyzes the vocabulary of the highlighted text, identifying complex words and providing definitions, synonyms, and usage examples."
+msgstr  "הקוד הזה מנתח את אוצר המילים של הטקסט המודגש, מזהה מילים מורכבות ומספק הגדרות, מילים נרדפות ודוגמאות שימוש."
+
+#: ../assistant_prompts.lua:44
+msgid   "Grammar"
+msgstr  "דקדוק"
+
+#: ../assistant_prompts.lua:46
+msgid   "This prompt analyzes the grammar of the highlighted text, providing a detailed explanation of its structure and any grammatical errors."
+msgstr  "הקוד הזה מנתח את הדקדוק של הטקסט המודגש, מספק הסבר מפורט של המבנה וכל שגיאה דקדוקית."
+
+#: ../assistant_prompts.lua:52
+msgid   "Translate"
+msgstr  "העבר"
+
+#: ../assistant_prompts.lua:53
+msgid   "This prompt translates the highlighted text to another language."
+msgstr  "הקוד הזה מעביר את הטקסט המודגש לשפה אחרת."
+
+#: ../assistant_prompts.lua:75
+msgid   "Summarize"
+msgstr  "תקציר"
+
+#: ../assistant_prompts.lua:77
+msgid   "This prompt summarizes the highlighted text, capturing its main points and essential details."
+msgstr  "הקוד הזה מסכם את הטקסט המודגש, כולל נקודות עיקריות ופרטים חשובים."
+
+#: ../assistant_prompts.lua:86
+msgid   "Simplify"
+msgstr  "פשט"
+
+#: ../assistant_prompts.lua:88
+msgid   "This prompt simplifies the highlighted text to make it easier to understand."
+msgstr  "הקוד הזה מפשט את הטקסט המודגש כדי להקל על ההבנה."
+
+#: ../assistant_prompts.lua:98
+msgid   "Key Points"
+msgstr  "נקודות מפתח"
+
+#: ../assistant_prompts.lua:100
+msgid   "This prompt extracts and lists the key points from the highlighted text, ensuring clarity and organization."
+msgstr  "הקוד הזה מציין ומפרט את נקודות המפתח מתוך הטקסט המודגש, תוך הבטחת בהירות והארגון."
+
+#: ../assistant_prompts.lua:104
+msgid   "ELI5"
+msgstr  "הסבר ל-5 שנים"
+
+#: ../assistant_prompts.lua:106
+msgid   "This prompt explains the highlighted text as if to a five-year-old, simplifying complex concepts into easily understandable terms."
+msgstr  "הקוד הזה מסביר את הטקסט המודגש כאילו הוא נכתב לילד בן חמישה, מפשט מושגים מורכבים למונחים מובנים."
+
+#: ../assistant_prompts.lua:110
+msgid   "Explain"
+msgstr  "הסבר"
+
+#: ../assistant_prompts.lua:112
+msgid   "This prompt explains the highlighted text in detail, ensuring clarity and understanding."
+msgstr  "הקוד הזה מסביר את הטקסט המודגש במפורט, תוך הבטחת בהירות והבנה."
+
+#: ../assistant_prompts.lua:123
+msgid   "Historical Context"
+msgstr  "הקשר היסטורי"
+
+#: ../assistant_prompts.lua:125
+msgid   "This prompt provides a detailed historical context for the highlighted text, explaining its significance and background."
+msgstr  "הקוד הזה מספק הקשר היסטורי מפורט לטקסט המודגש, עם הסבר על חשיבותו והרקע שלו."
+
+#: ../assistant_prompts.lua:129 ../main.lua:525
+msgid   "Wikipedia"
+msgstr  "ויקיפדיה"
+
+#: ../assistant_prompts.lua:131
+msgid   "This prompt generates a comprehensive Wikipedia-style article based on the highlighted text, ensuring factual accuracy and neutrality."
+msgstr  "הקוד הזה יוצר מאמר בסגנון ויקיפדיה על סמך הטקסט המודגש, תוך הבטחת דיוק עובדות וניטרליות."
+
+#. @translators used in the dictionary.
+#: ../assistant_prompts.lua:243
+msgid   "Conjugation"
+msgstr  "הטיה"
+
+#: ../assistant_prompts.lua:244
+msgid   "Synonyms"
+msgstr  "מילים נרדפות"
+
+#: ../assistant_prompts.lua:245
+msgid   "Meaning"
+msgstr  "משמעות"
+
+#: ../assistant_prompts.lua:246
+msgid   "Translation"
+msgstr  "תרגום"
+
+#: ../assistant_prompts.lua:247
+msgid   "Explanation"
+msgstr  "הסבר"
+
+#: ../assistant_prompts.lua:248
+msgid   "Example"
+msgstr  "דוגמה"
+
+#: ../assistant_prompts.lua:249
+msgid   "Word Origin"
+msgstr  "מקור המילה"
+
+#: ../assistant_querier.lua:50
+msgid   "Provider settings not found for: %1. Please check your configuration.lua file."
+msgstr  "הגדרות הספק לא נמצאו עבור: %1. נא לבדוק את הקובץ configuration.lua."
+
+#: ../assistant_querier.lua:76
+msgid   "The handler for %1 was not found. Please ensure the handler exists in api_handlers directory."
+msgstr  "המטפל עבור %1 לא נמצא. נא לוודא שהוא קיים בתיקיית api_handlers."
+
+#: ../assistant_querier.lua:109
+msgid   "API Error:\n"
+        "%1\n"
+        "\n"
+        "Try another provider in the settings dialog."
+msgstr  "שגיאת API:\n"
+        "%1\n"
+        "\n"
+        "נסה ספק אחר בחלון ההגדרות."
+
+#: ../assistant_querier.lua:109
+msgid   "Unknown error"
+msgstr  "שגיאה לא ידועה"
+
+#: ../assistant_querier.lua:110 ../main.lua:455
+msgid   "Settings"
+msgstr  "הגדרות"
+
+#: ../assistant_querier.lua:112 ../assistant_settings.lua:285
+#: ../assistant_viewer.lua:314
+msgid   "Close"
+msgstr  "סגור"
+
+#: ../assistant_querier.lua:127
+msgid   "Plugin is not configured."
+msgstr  "התוסף לא הוגדר."
+
+#: ../assistant_querier.lua:135
+msgid   "Querying AI ..."
+msgstr  "מתבצע שאילתא לבינה מלאכותית"
+
+#: ../assistant_querier.lua:158
+msgid   "AI is responding"
+msgstr  "הבינה המלאכותית מגיבה"
+
+#: ../assistant_querier.lua:174
+msgid   "⏹ Stop"
+msgstr  "⏹ עצור"
+
+#: ../assistant_querier.lua:201 ../assistant_querier.lua:213
+msgid   "Request cancelled by user."
+msgstr  "הבקשה בוטלה על ידי המשתמש."
+
+#: ../assistant_querier.lua:219
+msgid   "No response received."
+msgstr  "לא התקבלה תגובה."
+
+#: ../assistant_querier.lua:232
+msgid   "Failed to start subprocess for request"
+msgstr  "הפעלת תת־התהליך לבקשה נכשלה"
+
+#: ../assistant_querier.lua:429 ../assistant_querier.lua:431
+msgid   "Deeply Thought"
+msgstr  "מחשבה עמוקה"
+
+#: ../assistant_settings.lua:73
+msgid   "AI Response Language Setting"
+msgstr  "הגדרת שפת תגובה של AI"
+
+#: ../assistant_settings.lua:76
+msgid   "AI Response Language"
+msgstr  "שפת תגובת ה־AI"
+
+#: ../assistant_settings.lua:78 ../assistant_settings.lua:83
+msgid   "Leave blank to use: %1"
+msgstr  "השאר ריק כדי להשתמש ב־%1"
+
+#: ../assistant_settings.lua:81
+msgid   "Dictionary Language"
+msgstr  "שפת המילון"
+
+#: ../assistant_settings.lua:96
+msgid   "Clear"
+msgstr  "נקה"
+
+#: ../assistant_settings.lua:113 ../assistant_viewer.lua:423
+msgid   "Save"
+msgstr  "שמור"
+
+#: ../assistant_settings.lua:133 ../assistant_settings.lua:345
+msgid   "AI Language: %1"
+msgstr  "שפת AI: %1"
+
+#: ../assistant_settings.lua:144
+msgid   "RTL written Language"
+msgstr  "שפת כתיבה מימין לשמאל"
+
+#: ../assistant_settings.lua:164
+msgid   "Leave these fields blank to use the UI language: %1"
+msgstr  "השאר שדות אלו ריקים כדי להשתמש בשפת הממשק: %1"
+
+#: ../assistant_settings.lua:177
+msgid   "Response Font Size"
+msgstr  "גודל גופן התגובה"
+
+#: ../assistant_settings.lua:185 ../assistant_settings.lua:354
+msgid   "Font Size: %1"
+msgstr  "גודל גופן: %1"
+
+#: ../assistant_settings.lua:193 ../main.lua:204
+msgid   "AI Assistant Settings"
+msgstr  "הגדרות העוזר AI"
+
+#: ../assistant_settings.lua:217
+msgid   "Enable stream response"
+msgstr  "הפעל תגובה זורמת"
+
+#: ../assistant_settings.lua:225
+msgid   "Use AI Assistant for 'Translate'"
+msgstr  "השתמש בעוזר AI עבור 'העבר'"
+
+#: ../assistant_settings.lua:234
+msgid   "Show Dictionary(AI) in Dictionary Popup"
+msgstr  "הצג מילון (AI) בחלון המילון"
+
+#: ../assistant_settings.lua:242
+msgid   "Show Wikipedia(AI) in Dictionary Popup"
+msgstr  "הצג ויקיפדיה (AI) בחלון המילון"
+
+#: ../assistant_settings.lua:250
+msgid   "Copy entered question to the clipboard"
+msgstr  "העתק שאלה ללוח"
+
+#: ../assistant_settings.lua:258
+msgid   "Enable Auto Recap"
+msgstr  "הפעל סיכום אוטומטי"
+
+#: ../assistant_settings.lua:268
+msgid   "AI Recap will be enabled the next time a book is opened."
+msgstr  "סיכום AI יופעל בפתיחת הספר הבאה."
+
+#: ../assistant_settings.lua:272
+msgid   "Auto-save conversations to NoteBook"
+msgstr  "שמירה אוטומטית של שיחות לפנקס"
+
+#: ../assistant_settings.lua:370
+msgid   "AI Assistant Features:"
+msgstr  "תכונות אסיסטנט AI:"
+
+#: ../assistant_settings.lua:397
+msgid   "AI Model provider:"
+msgstr  "ספק מודל AI:"
+
+#: ../assistant_update_checker.lua:106
+msgid   "Checking for updates..."
+msgstr  "בודק עדכונים..."
+
+#: ../assistant_update_checker.lua:143
+#, lua-format
+msgid   "A new version of the %s plugin (%s) is available. Please update!"
+msgstr  "גרסה חדשה של תוסף %s (%s) זמינה. אנא עדכן!"
+
+#. @translators this is a button text, keep short
+#: ../assistant_viewer.lua:274 ../assistant_viewer.lua:705
+msgid   "Ask Another Question"
+msgstr  "שאל שאלה נוספת"
+
+#: ../assistant_viewer.lua:329
+msgid   "Copy"
+msgstr  "העתק"
+
+#: ../assistant_viewer.lua:334
+msgid   "Text copied to the clipboard"
+msgstr  "הטקסט הועתק ללוח"
+
+#: ../assistant_viewer.lua:348
+msgid   "Add Note"
+msgstr  "הוסף הערה"
+
+#: ../assistant_viewer.lua:355
+msgid   "Highlight functionality not available"
+msgstr  "הפונקציה הדגשה אינה זמינה"
+
+#: ../assistant_viewer.lua:364
+msgid   "No text to add as note"
+msgstr  "אין טקסט להוספת הערה"
+
+#: ../assistant_viewer.lua:393
+msgid   "No text left to add as note"
+msgstr  "אין טקסט להשארה להוספת הערה"
+
+#: ../assistant_viewer.lua:406
+msgid   "Note added successfully"
+msgstr  "ההערה נוספה בהצלחה"
+
+#: ../assistant_viewer.lua:427
+msgid   "Conversation is saved to NoteBook"
+msgstr  "השיחה נשמרה בפנקס"
+
+#: ../assistant_viewer.lua:573
+msgid   "Chat log export failed. Continuing..."
+msgstr  "יצוא יומן הצ'אט נכשל. ממשיך..."
+
+#: ../assistant_viewer.lua:707
+msgid   "Type your question here"
+msgstr  "הקלד שאלה כאן"
+
+#: ../assistant_viewer.lua:867
+msgid   "Word copied to clipboard."
+msgstr  "המילה הועתקה ללוח."
+
+#: ../assistant_viewer.lua:868
+msgid   "Selection copied to clipboard."
+msgstr  "הבחירה הועתקה ללוח."
+
+#: ../main.lua:77 ../main.lua:115
+msgid   "Ask the AI a question"
+msgstr  "שאל את הבינה המלאכותית שאלה"
+
+#: ../main.lua:85 ../main.lua:148
+msgid   "AI Recaps"
+msgstr  "סיכומי AI"
+
+#: ../main.lua:93 ../main.lua:137
+msgid   "AI X-Ray"
+msgstr  "רנטגן AI"
+
+#: ../main.lua:101 ../main.lua:126
+msgid   "Book Summary & Recs"
+msgstr  "סיכום ומלצות"
+
+#: ../main.lua:121
+msgid   "Enter a question to ask AI."
+msgstr  "הקלד שאלה לבינה מלאכותית"
+
+#: ../main.lua:132
+msgid   "Summary of the book, author biography, historical context, and a list of similar book recommendations with descriptions."
+msgstr  "סיכום הספר, ביוגרפיה של המחבר, הקשר היסטורי, ורשימת המלצות לספרים דומים עם תיאורים."
+
+#: ../main.lua:143
+msgid   "\"X-Ray\" summary for a book, structured into specific sections like Characters, Locations, Themes, Terms & Concepts, Timeline, and Re-immersion."
+msgstr  "סיכום \"X-Ray\" לספר, מחולק לנושאים כמו דמויות, מיקומים, נושאים, מונחים ורעיונות, ציר זמן וחזרה לעלילה."
+
+#: ../main.lua:154
+msgid   "A very brief, spoiler-free summary of the book up to current reading progress."
+msgstr  "סיכום קצר וללא ספוילרים של הספר עד נקודת הקריאה הנוכחית."
+
+#: ../main.lua:160
+msgid   "NoteBook (Saved AI Conversations)"
+msgstr  "פנקס (שיחות AI שמורות)"
+
+#: ../main.lua:166
+msgid   "Notebook file: \n"
+        "\n"
+msgstr  "קובץ פנקס: \n"
+        "\n"
+
+#: ../main.lua:167
+msgid   "View"
+msgstr  "צפייה"
+
+#: ../main.lua:171
+msgid   "File does not exist.\n"
+        "\n"
+        "%1"
+msgstr  "הקובץ אינו קיים.\n"
+        "\n"
+        "%1"
+
+#: ../main.lua:179 ../main.lua:183
+msgid   "Delete"
+msgstr  "מחיקה"
+
+#: ../main.lua:182
+msgid   "Delete file?\n"
+        "%1\n"
+        "This operation is not reversible."
+msgstr  "למחוק קובץ?\n"
+        "%1\n"
+        "לא ניתן לבטל פעולה זו."
+
+#: ../main.lua:194
+msgid   "Edit"
+msgstr  "עריכה"
+
+#: ../main.lua:284
+msgid   "No valid model provider is found in the configuration.lua"
+msgstr  "לא נמצא ספק מודל תקף ב-configuration.lua"
+
+#: ../main.lua:302
+msgid   "Configuration Error.\n"
+        "Please set up configuration.lua."
+msgstr  "שגיאת תצורה.\n"
+        "הגדר את configuration.lua."
+
+#: ../main.lua:371
+msgid   "configuration.lua: model providers are invalid."
+msgstr  "configuration.lua: ספקי המודל אינם תקפים."
+
+#: ../main.lua:436
+msgid   "Useful Tips\n"
+        "\n"
+        "Long Press:\n"
+        "- On a Prompt Button: Add to the highlight menu.\n"
+        "- On a highlight menu button to remove it.\n"
+        "- On the Close button to go back to the book in 1 step.\n"
+        "\n"
+        "Very-Long Press (over 3 seconds):\n"
+        "On a single word in the book to show the highlight menu (instead of the dictionary).\n"
+        "\n"
+        "Multi-Swipe (e.g., ⮠, ⮡, ↺):\n"
+        "On the result dialog to close (as the Close button is far to reach).\n"
+msgstr  "עצות שימושיות\n"
+        "\n"
+        "לחיצה ארוכה:\n"
+        "- על כפתור בקשה: הוסף לתפריט סימון.\n"
+        "- על כפתור בתפריט סימון כדי להסיר אותו.\n"
+        "- על כפתור סגירה כדי לחזור לספר במקש אחד.\n"
+        "\n"
+        "לחיצה ארוכה מאוד (מעל 3 שניות):\n"
+        "על מילה יחידה בספר כדי להציג את תפריט הסימון (במקום המילון).\n"
+        "\n"
+        "חליקה מרובה (למשל ⮠, ⮡, ↺):\n"
+        "על דו-שיח התוצאה כדי לסגור (כיוון שכפתור הסגירה רחוק להגיע).\n"
+
+#: ../main.lua:461
+msgid   "Purge Settings"
+msgstr  "נקה הגדרות"
+
+#: ../main.lua:464
+msgid   "Are you sure to purge the assistant plugin settings? \n"
+        "This resets the assistant plugin to the status the first time you installed it.\n"
+        "\n"
+        "configuration.lua is safe, only the settings in the dialog are purged."
+msgstr  "למחוק את הגדרות התוסף?\n"
+        "פעולה זו תאפס את התוסף למצבו הראשוני.\n"
+        "\n"
+        "configuration.lua יישאר ללא פגע, רק ההגדרות בחלון יימחקו."
+
+#: ../main.lua:468
+msgid   "Purge"
+msgstr  "נקה"
+
+#: ../main.lua:505
+#, lua-format
+msgid   "Remove [%s] from Highlight Menu?"
+msgstr  "האם להסיר [%s] מתפריט הדגשה?"
+
+#: ../main.lua:506
+msgid   "Remove"
+msgstr  "הסר"
+
+#: ../main.lua:658
+msgid   "Configuration not found. Please set up configuration.lua first."
+msgstr  "הגדרה לא נמצאה. אנא הגדר configuration.lua קודם."
+
+#: ../main.lua:700
+msgid   "Added [%1 (AI)] to Highlight Menu."
+msgstr  "התווסף [%1 (AI)] לתפריט הדגשה."
+
+#: ../main.lua:709
+#, lua-format
+msgid   "Removed [%s (AI)] from Highlight Menu."
+msgstr  "הוסר [%s (AI)] מתפריט הדגשה."
+
+#: ../main.lua:753
+msgid   "Do you want an AI Recap?\n"
+        "For %1 by %2.\n"
+        "\n"
+msgstr  "רוצה סיכום AI?\n"
+        "עבור %1 מאת %2.\n"
+        "\n"
+
+#: ../main.lua:754
+msgid   "Last read an hour ago."
+msgid_plural    "Last read %1 hours ago."
+msgstr[0]       "נקרא לפני שעה."
+msgstr[1]       "נקרא לפני %1 שעות."
+
+#: ../main.lua:759
+msgid   "Yes"
+msgstr  "כן"
+
+#: ../main.lua:768
+msgid   "No"
+msgstr  "לא"

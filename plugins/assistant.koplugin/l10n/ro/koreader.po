@@ -1,0 +1,628 @@
+# Traducere în limba română pentru assistant.koplugin
+# Copyright (C) 2025 assistant.koplugin
+# Acest fișier este distribuit sub aceeași licență ca pachetul assistant.koplugin.
+#
+msgid   ""
+msgstr  "Project-Id-Version: assistant.koplugin 2025.08.21\n"
+        "Report-Msgid-Bugs-To: \n"
+        "POT-Creation-Date: 2025-09-05 16:37+0800\n"
+        "PO-Revision-Date: 2025-09-05 00:03+0800\n"
+        "Last-Translator: ChatGPT 4.0\n"
+        "Language-Team: ChatGPT 4.0\n"
+        "Language: Română (ro)\n"
+        "MIME-Version: 1.0\n"
+        "Content-Type: text/plain; charset=UTF-8\n"
+        "Content-Transfer-Encoding: 8bit\n"
+        "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n==0 || (n%100>0 && n%100<20)) ? 1 : 2);\n"
+
+#: ../_meta.lua:4 ../assistant_dialog.lua:369 ../main.lua:111 ../main.lua:338
+msgid   "AI Assistant"
+msgstr  "Asistent IA"
+
+#: ../_meta.lua:5
+msgid   "💡 Enhance your KOReader experience with AI"
+msgstr  "💡 Îmbunătățește experiența KOReader cu IA"
+
+#: ../assistant_dialog.lua:85
+msgid   "(Empty message)"
+msgstr  "(Mesaj gol)"
+
+#: ../assistant_dialog.lua:89
+msgid   "(No response)"
+msgstr  "(Fără răspuns)"
+
+#: ../assistant_dialog.lua:118
+msgid   "Highlighted text:"
+msgstr  "Text evidențiat:"
+
+#: ../assistant_dialog.lua:258 ../assistant_dictdialog.lua:36
+#: ../assistant_settings.lua:89 ../assistant_viewer.lua:639
+msgid   "Cancel"
+msgstr  "Anulează"
+
+#: ../assistant_dialog.lua:265 ../assistant_viewer.lua:649
+msgid   "Ask"
+msgstr  "Întreabă"
+
+#: ../assistant_dialog.lua:271 ../assistant_viewer.lua:655
+msgid   "Enter a question before proceeding."
+msgstr  "Introduceți o întrebare înainte de a continua."
+
+#: ../assistant_dialog.lua:296
+msgid   "Book Analysis"
+msgstr  "Analiza cărții"
+
+#: ../assistant_dialog.lua:333
+msgid   "Add this button to the Highlight Menu?"
+msgstr  "Adăugăm acest buton în meniul de evidențiere?"
+
+#: ../assistant_dialog.lua:334
+msgid   "Add"
+msgstr  "Adaugă"
+
+#: ../assistant_dialog.lua:361
+msgid   "Ask a question about the highlighted text"
+msgstr  "Pune o întrebare despre textul evidențiat"
+
+#: ../assistant_dialog.lua:362
+#, lua-format
+msgid   "Ask a question about this book:\n"
+        "%s by %s"
+msgstr  "Pune o întrebare despre cartea:\n"
+        "%s de %s"
+
+#: ../assistant_dialog.lua:365
+msgid   "Type your question here..."
+msgstr  "Scrieți întrebarea aici..."
+
+#: ../assistant_dialog.lua:366
+msgid   "Ask anything about this book..."
+msgstr  "Întreabă orice despre această carte..."
+
+#: ../assistant_dialog.lua:424
+msgid   "Error: No response received"
+msgstr  "Eroare: nu s-a primit niciun răspuns"
+
+#: ../assistant_dictdialog.lua:30
+msgid   "AI Dictionary"
+msgstr  "Dicționar IA"
+
+#: ../assistant_dictdialog.lua:31
+msgid   "Enter a word to look up..."
+msgstr  "Introduceți un cuvânt de căutat..."
+
+#: ../assistant_dictdialog.lua:42
+msgid   "Look Up"
+msgstr  "Caută"
+
+#: ../assistant_dictdialog.lua:177 ../assistant_prompts.lua:20 ../main.lua:539
+msgid   "Dictionary"
+msgstr  "Dicționar"
+
+#: ../assistant_featuredialog.lua:32
+msgid   "Recap"
+msgstr  "Rezumat"
+
+#: ../assistant_featuredialog.lua:33
+msgid   "Loading Recap..."
+msgstr  "Se încarcă rezumatul..."
+
+#: ../assistant_featuredialog.lua:38
+msgid   "X‑Ray"
+msgstr  "X-Ray"
+
+#: ../assistant_featuredialog.lua:39
+msgid   "Loading X-Ray..."
+msgstr  "Se încarcă X-Ray..."
+
+#: ../assistant_featuredialog.lua:44
+msgid   "Book Information"
+msgstr  "Info carte"
+
+#: ../assistant_featuredialog.lua:45
+msgid   "Loading Book Information..."
+msgstr  "Se încarcă informațiile cărții..."
+
+#: ../assistant_featuredialog.lua:56
+#, lua-format
+msgid   "Unknown feature type: %s"
+msgstr  "Tip funcție necunoscut: %s"
+
+#: ../assistant_prompts.lua:21
+msgid   "This prompt acts as a dictionary for the highlighted text, to a word or phrase."
+msgstr  "Acest prompt funcționează ca dicționar pentru textul evidențiat, un cuvânt sau expresie."
+
+#: ../assistant_prompts.lua:26
+msgid   "Vocabulary"
+msgstr  "Vocabular"
+
+#: ../assistant_prompts.lua:28
+msgid   "This prompt analyzes the vocabulary of the highlighted text, identifying complex words and providing definitions, synonyms, and usage examples."
+msgstr  "Acest prompt analizează vocabularul textului evidențiat, identificând cuvinte complexe și oferind definiții, sinonime și exemple de utilizare."
+
+#: ../assistant_prompts.lua:44
+msgid   "Grammar"
+msgstr  "Gramatică"
+
+#: ../assistant_prompts.lua:46
+msgid   "This prompt analyzes the grammar of the highlighted text, providing a detailed explanation of its structure and any grammatical errors."
+msgstr  "Acest prompt analizează gramatica textului evidențiat, oferind o explicație detaliată a structurii și a eventualelor greșeli."
+
+#: ../assistant_prompts.lua:52
+msgid   "Translate"
+msgstr  "Traduce"
+
+#: ../assistant_prompts.lua:53
+msgid   "This prompt translates the highlighted text to another language."
+msgstr  "Acest prompt traduce textul evidențiat în altă limbă."
+
+#: ../assistant_prompts.lua:75
+msgid   "Summarize"
+msgstr  "Rezumă"
+
+#: ../assistant_prompts.lua:77
+msgid   "This prompt summarizes the highlighted text, capturing its main points and essential details."
+msgstr  "Acest prompt rezumă textul evidențiat, surprinzând ideile principale și detaliile esențiale."
+
+#: ../assistant_prompts.lua:86
+msgid   "Simplify"
+msgstr  "Simplifică"
+
+#: ../assistant_prompts.lua:88
+msgid   "This prompt simplifies the highlighted text to make it easier to understand."
+msgstr  "Acest prompt simplifică textul evidențiat pentru a-l face mai ușor de înțeles."
+
+#: ../assistant_prompts.lua:98
+msgid   "Key Points"
+msgstr  "Puncte cheie"
+
+#: ../assistant_prompts.lua:100
+msgid   "This prompt extracts and lists the key points from the highlighted text, ensuring clarity and organization."
+msgstr  "Acest prompt extrage și listează punctele cheie din textul evidențiat, asigurând claritate și organizare."
+
+#: ../assistant_prompts.lua:104
+msgid   "ELI5"
+msgstr  "ELI5"
+
+#: ../assistant_prompts.lua:106
+msgid   "This prompt explains the highlighted text as if to a five-year-old, simplifying complex concepts into easily understandable terms."
+msgstr  "Acest prompt explică textul evidențiat ca unui copil de cinci ani, simplificând conceptele complexe."
+
+#: ../assistant_prompts.lua:110
+msgid   "Explain"
+msgstr  "Explică"
+
+#: ../assistant_prompts.lua:112
+msgid   "This prompt explains the highlighted text in detail, ensuring clarity and understanding."
+msgstr  "Acest prompt explică textul evidențiat în detaliu, asigurând claritate și înțelegere."
+
+#: ../assistant_prompts.lua:123
+msgid   "Historical Context"
+msgstr  "Context istoric"
+
+#: ../assistant_prompts.lua:125
+msgid   "This prompt provides a detailed historical context for the highlighted text, explaining its significance and background."
+msgstr  "Acest prompt oferă un context istoric detaliat pentru textul evidențiat, explicând semnificația și fundalul."
+
+#: ../assistant_prompts.lua:129 ../main.lua:525
+msgid   "Wikipedia"
+msgstr  "Wikipedia"
+
+#: ../assistant_prompts.lua:131
+msgid   "This prompt generates a comprehensive Wikipedia-style article based on the highlighted text, ensuring factual accuracy and neutrality."
+msgstr  "Acest prompt generează un articol complet în stil Wikipedia bazat pe textul evidențiat, asigurând acuratețea și neutralitatea."
+
+#. @translators used in the dictionary.
+#: ../assistant_prompts.lua:243
+msgid   "Conjugation"
+msgstr  "Conjugare"
+
+#: ../assistant_prompts.lua:244
+msgid   "Synonyms"
+msgstr  "Sinonime"
+
+#: ../assistant_prompts.lua:245
+msgid   "Meaning"
+msgstr  "Înțeles"
+
+#: ../assistant_prompts.lua:246
+msgid   "Translation"
+msgstr  "Traducere"
+
+#: ../assistant_prompts.lua:247
+msgid   "Explanation"
+msgstr  "Explicație"
+
+#: ../assistant_prompts.lua:248
+msgid   "Example"
+msgstr  "Exemplu"
+
+#: ../assistant_prompts.lua:249
+msgid   "Word Origin"
+msgstr  "Originea cuvântului"
+
+#: ../assistant_querier.lua:50
+msgid   "Provider settings not found for: %1. Please check your configuration.lua file."
+msgstr  "Setările furnizorului nu au fost găsite pentru: %1. Vă rugăm să verificaţi fişierul configuration.lua."
+
+#: ../assistant_querier.lua:76
+msgid   "The handler for %1 was not found. Please ensure the handler exists in api_handlers directory."
+msgstr  "Handlerul pentru %1 nu a fost găsit. Asiguraţi-vă că handlerul există în directorul api_handlers."
+
+#: ../assistant_querier.lua:109
+msgid   "API Error:\n"
+        "%1\n"
+        "\n"
+        "Try another provider in the settings dialog."
+msgstr  "Eroare API:\n"
+        "%1\n"
+        "\n"
+        "Încearcă alt furnizor în setări."
+
+#: ../assistant_querier.lua:109
+msgid   "Unknown error"
+msgstr  "Eroare necunoscută"
+
+#: ../assistant_querier.lua:110 ../main.lua:455
+msgid   "Settings"
+msgstr  "Setări"
+
+#: ../assistant_querier.lua:112 ../assistant_settings.lua:285
+#: ../assistant_viewer.lua:314
+msgid   "Close"
+msgstr  "Închide"
+
+#: ../assistant_querier.lua:127
+msgid   "Plugin is not configured."
+msgstr  "Pluginul nu este configurat."
+
+#: ../assistant_querier.lua:135
+msgid   "Querying AI ..."
+msgstr  "Se interoghează IA..."
+
+#: ../assistant_querier.lua:158
+msgid   "AI is responding"
+msgstr  "IA răspunde"
+
+#: ../assistant_querier.lua:174
+msgid   "⏹ Stop"
+msgstr  "⏹ Oprește"
+
+#: ../assistant_querier.lua:201 ../assistant_querier.lua:213
+msgid   "Request cancelled by user."
+msgstr  "Cerere anulată de utilizator."
+
+#: ../assistant_querier.lua:219
+msgid   "No response received."
+msgstr  "Niciun răspuns primit."
+
+#: ../assistant_querier.lua:232
+msgid   "Failed to start subprocess for request"
+msgstr  "Eroare la pornirea subprocesului pentru cerere"
+
+#: ../assistant_querier.lua:429 ../assistant_querier.lua:431
+msgid   "Deeply Thought"
+msgstr  "Deeply Thought"
+
+#: ../assistant_settings.lua:73
+msgid   "AI Response Language Setting"
+msgstr  "Setare limbă răspuns AI"
+
+#: ../assistant_settings.lua:76
+msgid   "AI Response Language"
+msgstr  "Limbă răspuns IA"
+
+#: ../assistant_settings.lua:78 ../assistant_settings.lua:83
+msgid   "Leave blank to use: %1"
+msgstr  "Lasă gol pentru a folosi: %1"
+
+#: ../assistant_settings.lua:81
+msgid   "Dictionary Language"
+msgstr  "Limbă dicționar"
+
+#: ../assistant_settings.lua:96
+msgid   "Clear"
+msgstr  "Șterge"
+
+#: ../assistant_settings.lua:113 ../assistant_viewer.lua:423
+msgid   "Save"
+msgstr  "Salvează"
+
+#: ../assistant_settings.lua:133 ../assistant_settings.lua:345
+msgid   "AI Language: %1"
+msgstr  "Limba AI: %1"
+
+#: ../assistant_settings.lua:144
+msgid   "RTL written Language"
+msgstr  "Limbă scrisă RTL"
+
+#: ../assistant_settings.lua:164
+msgid   "Leave these fields blank to use the UI language: %1"
+msgstr  "Lasă aceste câmpuri goale pentru a folosi limba interfeței: %1"
+
+#: ../assistant_settings.lua:177
+msgid   "Response Font Size"
+msgstr  "Dimensiune font răspuns"
+
+#: ../assistant_settings.lua:185 ../assistant_settings.lua:354
+msgid   "Font Size: %1"
+msgstr  "Mărimea fontului: %1"
+
+#: ../assistant_settings.lua:193 ../main.lua:204
+msgid   "AI Assistant Settings"
+msgstr  "Setări Asistent AI"
+
+#: ../assistant_settings.lua:217
+msgid   "Enable stream response"
+msgstr  "Activează răspuns în flux"
+
+#: ../assistant_settings.lua:225
+msgid   "Use AI Assistant for 'Translate'"
+msgstr  "Folosește Asistentul IA pentru „Traducere”"
+
+#: ../assistant_settings.lua:234
+msgid   "Show Dictionary(AI) in Dictionary Popup"
+msgstr  "Afișează Dicționar(IA) în fereastra Dicționar"
+
+#: ../assistant_settings.lua:242
+msgid   "Show Wikipedia(AI) in Dictionary Popup"
+msgstr  "Afișează Wikipedia(IA) în fereastra Dicționar"
+
+#: ../assistant_settings.lua:250
+msgid   "Copy entered question to the clipboard"
+msgstr  "Copiază întrebarea în clipboard"
+
+#: ../assistant_settings.lua:258
+msgid   "Enable Auto Recap"
+msgstr  "Activează rezumatul automat"
+
+#: ../assistant_settings.lua:268
+msgid   "AI Recap will be enabled the next time a book is opened."
+msgstr  "Recapitularea IA va fi activată la următoarea deschidere a cărții."
+
+#: ../assistant_settings.lua:272
+msgid   "Auto-save conversations to NoteBook"
+msgstr  "Salvează automat conversațiile în NoteBook"
+
+#: ../assistant_settings.lua:370
+msgid   "AI Assistant Features:"
+msgstr  "Funcționalități asistent AI:"
+
+#: ../assistant_settings.lua:397
+msgid   "AI Model provider:"
+msgstr  "Furnizor model AI:"
+
+#: ../assistant_update_checker.lua:106
+msgid   "Checking for updates..."
+msgstr  "Se caută actualizări..."
+
+#: ../assistant_update_checker.lua:143
+#, lua-format
+msgid   "A new version of the %s plugin (%s) is available. Please update!"
+msgstr  "O nouă versiune a plugin-ului %s (%s) este disponibilă. Actualizați!"
+
+#. @translators this is a button text, keep short
+#: ../assistant_viewer.lua:274 ../assistant_viewer.lua:705
+msgid   "Ask Another Question"
+msgstr  "Pune altă întrebare"
+
+#: ../assistant_viewer.lua:329
+msgid   "Copy"
+msgstr  "Copiază"
+
+#: ../assistant_viewer.lua:334
+msgid   "Text copied to the clipboard"
+msgstr  "Text copiat în clipboard"
+
+#: ../assistant_viewer.lua:348
+msgid   "Add Note"
+msgstr  "Adaugă notă"
+
+#: ../assistant_viewer.lua:355
+msgid   "Highlight functionality not available"
+msgstr  "Funcția de evidențiere indisponibilă"
+
+#: ../assistant_viewer.lua:364
+msgid   "No text to add as note"
+msgstr  "Niciun text de adăugat ca notă"
+
+#: ../assistant_viewer.lua:393
+msgid   "No text left to add as note"
+msgstr  "Nu mai rămâne text de adăugat ca notă"
+
+#: ../assistant_viewer.lua:406
+msgid   "Note added successfully"
+msgstr  "Notă adăugată cu succes"
+
+#: ../assistant_viewer.lua:427
+msgid   "Conversation is saved to NoteBook"
+msgstr  "Conversația a fost salvată în NoteBook"
+
+#: ../assistant_viewer.lua:573
+msgid   "Chat log export failed. Continuing..."
+msgstr  "Exportul jurnalului conversației a eșuat. Se continuă..."
+
+#: ../assistant_viewer.lua:707
+msgid   "Type your question here"
+msgstr  "Scrieți întrebarea aici"
+
+#: ../assistant_viewer.lua:867
+msgid   "Word copied to clipboard."
+msgstr  "Cuvânt copiat în clipboard."
+
+#: ../assistant_viewer.lua:868
+msgid   "Selection copied to clipboard."
+msgstr  "Selecție copiată în clipboard."
+
+#: ../main.lua:77 ../main.lua:115
+msgid   "Ask the AI a question"
+msgstr  "Pune o întrebare IA"
+
+#: ../main.lua:85 ../main.lua:148
+msgid   "AI Recaps"
+msgstr  "Rezumate IA"
+
+#: ../main.lua:93 ../main.lua:137
+msgid   "AI X-Ray"
+msgstr  "AI X-Ray"
+
+#: ../main.lua:101 ../main.lua:126
+msgid   "Book Summary & Recs"
+msgstr  "Rezumat & recomandări"
+
+#: ../main.lua:121
+msgid   "Enter a question to ask AI."
+msgstr  "Introdu o întrebare pentru AI."
+
+#: ../main.lua:132
+msgid   "Summary of the book, author biography, historical context, and a list of similar book recommendations with descriptions."
+msgstr  "Rezumatul cărții, biografia autorului, contextul istoric și o listă de cărți similare cu descrieri."
+
+#: ../main.lua:143
+msgid   "\"X-Ray\" summary for a book, structured into specific sections like Characters, Locations, Themes, Terms & Concepts, Timeline, and Re-immersion."
+msgstr  "Rezumat „X-Ray” al cărții, structurat pe secțiuni: Personaje, Locații, Tematici, Termeni și concepte, Cronologie, Re-integrare."
+
+#: ../main.lua:154
+msgid   "A very brief, spoiler-free summary of the book up to current reading progress."
+msgstr  "Rezumat foarte scurt, fără spoilere, până la progresul actual de citire."
+
+#: ../main.lua:160
+msgid   "NoteBook (Saved AI Conversations)"
+msgstr  "NoteBook (Conversații AI salvate)"
+
+#: ../main.lua:166
+msgid   "Notebook file: \n"
+        "\n"
+msgstr  "Fișier notebook: \n"
+        "\n"
+
+#: ../main.lua:167
+msgid   "View"
+msgstr  "Vizualizează"
+
+#: ../main.lua:171
+msgid   "File does not exist.\n"
+        "\n"
+        "%1"
+msgstr  "Fișierul nu există.\n"
+        "\n"
+        "%1"
+
+#: ../main.lua:179 ../main.lua:183
+msgid   "Delete"
+msgstr  "Șterge"
+
+#: ../main.lua:182
+msgid   "Delete file?\n"
+        "%1\n"
+        "This operation is not reversible."
+msgstr  "Ștergeți fișierul?\n"
+        "%1\n"
+        "Această operațiune nu poate fi anulată."
+
+#: ../main.lua:194
+msgid   "Edit"
+msgstr  "Editează"
+
+#: ../main.lua:284
+msgid   "No valid model provider is found in the configuration.lua"
+msgstr  "Niciun furnizor de model valid în configuration.lua"
+
+#: ../main.lua:302
+msgid   "Configuration Error.\n"
+        "Please set up configuration.lua."
+msgstr  "Eroare de configurare.\n"
+        "Configurați configuration.lua."
+
+#: ../main.lua:371
+msgid   "configuration.lua: model providers are invalid."
+msgstr  "configuration.lua: furnizorii de model sunt invalizi."
+
+#: ../main.lua:436
+msgid   "Useful Tips\n"
+        "\n"
+        "Long Press:\n"
+        "- On a Prompt Button: Add to the highlight menu.\n"
+        "- On a highlight menu button to remove it.\n"
+        "- On the Close button to go back to the book in 1 step.\n"
+        "\n"
+        "Very-Long Press (over 3 seconds):\n"
+        "On a single word in the book to show the highlight menu (instead of the dictionary).\n"
+        "\n"
+        "Multi-Swipe (e.g., ⮠, ⮡, ↺):\n"
+        "On the result dialog to close (as the Close button is far to reach).\n"
+msgstr  "Sfaturi utile\n"
+        "\n"
+        "Apăsare lungă:\n"
+        "- Pe un buton de prompt: adaugă în meniul de evidențiere.\n"
+        "- Pe un buton din meniul de evidențiere pentru a-l elimina.\n"
+        "- Pe butonul Închidere pentru a reveni la carte dintr-o singură mișcare.\n"
+        "\n"
+        "Apăsare foarte lungă (peste 3 secunde):\n"
+        "Pe un singur cuvânt din carte pentru a afișa meniul de evidențiere (în loc de dicționar).\n"
+        "\n"
+        "Glisare multiplă (ex. ⮠, ⮡, ↺):\n"
+        "Pe dialogul de rezultate pentru a-l închide (deoarece butonul Închidere este greu de atins).\n"
+
+#: ../main.lua:461
+msgid   "Purge Settings"
+msgstr  "Resetează setările"
+
+#: ../main.lua:464
+msgid   "Are you sure to purge the assistant plugin settings? \n"
+        "This resets the assistant plugin to the status the first time you installed it.\n"
+        "\n"
+        "configuration.lua is safe, only the settings in the dialog are purged."
+msgstr  "Sigur vrei să resetezi setările pluginului asistent?\n"
+        "Aceasta readuce pluginul la starea inițială de la prima instalare.\n"
+        "\n"
+        "configuration.lua rămâne intact, doar setările din dialog sunt șterse."
+
+#: ../main.lua:468
+msgid   "Purge"
+msgstr  "Resetează"
+
+#: ../main.lua:505
+#, lua-format
+msgid   "Remove [%s] from Highlight Menu?"
+msgstr  "Elimin [%s] din meniul de evidențiere?"
+
+#: ../main.lua:506
+msgid   "Remove"
+msgstr  "Elimină"
+
+#: ../main.lua:658
+msgid   "Configuration not found. Please set up configuration.lua first."
+msgstr  "Configurarea nu a fost găsită. Setați configuration.lua mai întâi."
+
+#: ../main.lua:700
+msgid   "Added [%1 (AI)] to Highlight Menu."
+msgstr  "Adăugat [%1 (IA)] în meniul de evidențiere."
+
+#: ../main.lua:709
+#, lua-format
+msgid   "Removed [%s (AI)] from Highlight Menu."
+msgstr  "Eliminat [%s (IA)] din meniul de evidențiere."
+
+#: ../main.lua:753
+msgid   "Do you want an AI Recap?\n"
+        "For %1 by %2.\n"
+        "\n"
+msgstr  "Dorești un rezumat AI?\n"
+        "Pentru %1 de %2.\n"
+        "\n"
+
+#: ../main.lua:754
+msgid   "Last read an hour ago."
+msgid_plural    "Last read %1 hours ago."
+msgstr[0]       "Ultima dată citit acum o oră."
+msgstr[1]       "Ultima dată citit acum %1 ore."
+msgstr[2]       "Ultima dată citit acum %1 de ore."
+
+#: ../main.lua:759
+msgid   "Yes"
+msgstr  "Da"
+
+#: ../main.lua:768
+msgid   "No"
+msgstr  "Nu"
