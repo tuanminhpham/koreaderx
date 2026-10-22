@@ -316,11 +316,11 @@ The Test path restriction, debug Android variant, incomplete third-party annotat
 
 ## Verification scope and short manual checks
 
-The runtime baseline was commit `e5ba9d225edc9ff2f28dfd25ab72e7fa13c69566`, verified as Test versionCode `119722`. Alpha 2.0 adds release documentation and a self-contained build-validation path without changing that reader/plugin runtime. The final build's source commit and hashes are in `BUILD_INFO.json`. Evidence available when this guide was frozen is separated below; the release's `TEST_RESULTS.json` records final-APK installation, artifact checks and any subsequent device smoke tests.
+The runtime baseline was commit `e5ba9d225edc9ff2f28dfd25ab72e7fa13c69566`, verified as Test versionCode `119722`. Alpha 2.0 adds release documentation, a self-contained build-validation path and a focused reader-menu fix: bulk PDF commands include highlights with notes and remain disabled when write-PDF is off or unset. The Assistant runtime remains the verified vendored integration. The final build's source commit and hashes are in `BUILD_INFO.json`. Evidence available when this guide was frozen is separated below; the release's `TEST_RESULTS.json` records final-APK installation, artifact checks and any subsequent device smoke tests.
 
 | Check | Recorded status | Scope |
 | --- | --- | --- |
-| Focused reader/annotation/Assistant host regression | PASS_HOST | 143 tests: 75 overlay/footer/navigation/Assistant cases and 68 import/integration/ownership cases, using isolated profiles/fixtures. |
+| Focused reader/annotation/Assistant host regression | PASS_HOST | 157 tests: 143 inherited reader/annotation/Assistant regression cases plus 14 focused bulk-menu cases for the note-count fix, using isolated profiles/fixtures. |
 | Vendored-plugin build-input validation | PASS_HOST | 14 checks, including independent use of the vendored snapshot, excluded private configuration, hash validation and invalid-input rejection. |
 | Assistant HTTPS transport | PASS_HOST | 23 cases: 10 actual local LuaSec request cases and 13 hostname/SAN cases; no paid provider calls. |
 | Fresh defaults | PASS_HOST | Isolated profile/fixture tests; this is not a first-install TabXC test. |

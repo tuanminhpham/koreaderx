@@ -665,7 +665,9 @@ If you wish your highlights to be saved in the document, just move it to a writa
                 {
                     text = _("Write all highlights into PDF file"),
                     enabled_func = function()
-                        return self.highlight_write_into_pdf and self.ui.annotation:getNumberOfHighlightsAndNotes() > 0
+                        if not self.highlight_write_into_pdf then return false end
+                        local highlights, notes = self.ui.annotation:getNumberOfHighlightsAndNotes()
+                        return highlights + notes > 0
                     end,
                     callback = function()
                         UIManager:show(ConfirmBox:new{
@@ -696,7 +698,9 @@ If you wish your highlights to be saved in the document, just move it to a writa
                 {
                     text = _("Delete all highlights from PDF file"),
                     enabled_func = function()
-                        return self.highlight_write_into_pdf and self.ui.annotation:getNumberOfHighlightsAndNotes() > 0
+                        if not self.highlight_write_into_pdf then return false end
+                        local highlights, notes = self.ui.annotation:getNumberOfHighlightsAndNotes()
+                        return highlights + notes > 0
                     end,
                     callback = function()
                         UIManager:show(ConfirmBox:new{

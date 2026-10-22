@@ -15,6 +15,8 @@ This is the **Alpha 2.0 prerelease** of the isolated Android Test package, built
 - Fixes dictionary actions' compatibility with the integrated plugin and verifies HTTPS certificate chains **and hostnames** before sending provider credentials. HTTPS redirects are disabled for those requests.
 - Adds a complete English user guide covering installation, display settings, every compact toolbar button, TOC, reimport, metadata/PDF write-back, Assistant and known limitations.
 
+- Fixes bulk PDF command availability for note-only documents: **Write all highlights into PDF file** and **Delete all highlights from PDF file** count note-bearing highlights too and stay disabled when write-PDF is off or unset.
+
 ## Download and install
 
 Download **`KOReaderX-Test-Alpha-2.0-arm64-v8a.apk`** for a 64-bit ARM Android device. ONYX TabXC is the target device used in the recorded testing. Validate it against **`SHA256SUMS.txt`** and inspect **`BUILD_INFO.json`** before installing.
@@ -51,7 +53,7 @@ The runtime baseline `e5ba9d225edc9ff2f28dfd25ab72e7fa13c69566` was verified on 
 
 | Test | Status at source/documentation freeze | Scope |
 | --- | --- | --- |
-| Reader, overlays, footer, navigation, Assistant and PDF annotation host regressions | PASS_HOST | 143 tests in isolated profiles/fixtures. |
+| Reader, overlays, footer, navigation, Assistant and PDF annotation host regressions | PASS_HOST | 143 inherited regression cases plus 14 focused note-aware bulk-menu cases in isolated profiles/fixtures (157 total). |
 | Self-contained vendored-plugin build validation | PASS_HOST | 14 checks; excludes private/development files and rejects invalid snapshots. |
 | HTTPS certificate/hostname checks | PASS_HOST | 23 local cases (10 actual LuaSec request cases plus 13 SAN/hostname cases), separate from provider generation. |
 | Real toolbar-selected text → Gemini response | PASS_HISTORICAL_DEVICE | TabXC Test119722, nonstream `gemini-2.5-flash`, Vietnamese translation; provider/settings retained after restart. |
