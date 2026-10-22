@@ -1,0 +1,44 @@
+{
+  "parent_sha": "b74df73f87786442d73429815c27b771457be000",
+  "base_sha": "fa81dbb114fdd623f0b8e9d1d6b56f6321265998",
+  "launcher_sha": "d7cd36784e0b5f32e56541d14248ee172cd7af04",
+  "version_code": 119662,
+  "version_name": "v2026.07.1-KOReaderX-S11-b74df73f8778",
+  "manifest": {
+    "name": "org.koreader.launcher.koreaderxtest",
+    "versionCode": "119662",
+    "versionName": "v2026.07.1-KOReaderX-S11-b74df73f8778",
+    "platformBuildVersionName": "11",
+    "platformBuildVersionCode": "30",
+    "compileSdkVersion": "30",
+    "compileSdkVersionCodename": "11",
+    "minSdkVersion": "18",
+    "targetSdkVersion": "30",
+    "debuggable": true,
+    "aapt_native_code": [
+      "arm64-v8a"
+    ]
+  },
+  "signature": {
+    "certificate_sha256": [
+      "4ced17eb89f07fe72eec6e5768b9d5e0720683224c0d491e3693c8f54d3d535d"
+    ],
+    "verification_schemes": [
+      "Verified using v1 scheme (JAR signing): true",
+      "Verified using v2 scheme (APK Signature Scheme v2): true",
+      "Verified using v3 scheme (APK Signature Scheme v3): false",
+      "Verified using v3.1 scheme (APK Signature Scheme v3.1): false",
+      "Verified using v4 scheme (APK Signature Scheme v4): false"
+    ]
+  },
+  "name": "KOReaderX Test Alpha 1.0",
+  "apk_filename": "KOReaderX-S11-b74df73f8778-arm64-isolated-test.apk",
+  "apk_sha256": "e1f626f1ccdc2926bd2dcc0340dae0f46c3b1272a3de4bbf82cb3f1bec9c02bd",
+  "source_payload_files_verified": 490,
+  "verified_on": "2026-10-22",
+  "source_newer_excluded": [
+    "bafd246477d38f653413a4a5c80ce6f0b896ef29",
+    "a3189d2ba",
+    "573fdb76b378a8989e19254b959c1555715cf77e"
+  ]
+}
